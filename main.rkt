@@ -4,64 +4,10 @@
 ;;
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
 
-(require (for-syntax racket/syntax syntax/parse))
+(require (for-syntax racket/syntax syntax/parse syntax/stx))
 
-(provide struct/kw
-         struct++
+(provide struct++
          )
-
-;(struct field-info (name getter setter mutable? contract default parent) #:transparent)
-
-(begin-for-syntax
-  (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
-
-(define-syntax (struct/kw stx)
-  (define-syntax-class field
-    (pattern id:id
-             #:with ctor-arg #`(#,(syntax->keyword #'id) id))
-    (pattern [id:id default:expr]
-             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default])))
-  (syntax-parse stx
-    [(_ struct-id:id (field:field ...) opt ...)
-     (with-syntax ([ctor-id (format-id #'struct-id "~a/kw" #'struct-id)]
-                   [((ctor-arg ...) ...) #'(field.ctor-arg ...)]) ; The double ... flattens one level
-       #'(begin
-           (struct struct-id (field.id ...) opt ...)
-           (define (ctor-id ctor-arg ... ...) ; The double ... flattens one level
-             (struct-id field.id ...))))]
-    ;
-    [(_ struct-id:id super-id:id (field:field ...) opt ...)
-     (with-syntax ([ctor-id (format-id #'struct-id "~a/kw" #'struct-id)]
-                   [((ctor-arg ...) ...) #'(field.ctor-arg ...)]) ; The double ... flattens one level
-       #'(begin
-           (struct struct-id super-id (field.id ...) opt ...)
-           (define (ctor-id ctor-arg ... ...) ; The double ... flattens one level
-             (struct-id field.id ...))))]
-    ))
-
-;;----------------------------------------------------------------------
-
-(define-syntax (struct++ stx)
-  (define-syntax-class field
-    (pattern id:id)
-    (pattern [id:id field-contract:expr])
-    (pattern [id:id field-contract:expr wrapper-func:expr])
-    (pattern [(id:id default-value:expr)])
-    (pattern [(id:id default-value:expr) field-contract:expr])
-    (pattern [(id:id default-value:expr) field-contract:expr wrapper-func:expr]))
-  ;; (define-syntax-class declaration
-  ;;   (pattern id:id (field:field ...) opt ...)
-  ;;   (pattern id:id super-id:id (field:field ...) opt ...))
-  (syntax-parse stx
-    [(_ struct-id:id ignored ...)
-     (with-syntax ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
-                   [pred    (format-id #'struct-id "~a?" #'struct-id)])
-       (syntax-parse stx
-         [(_ struct-id:id (field:field ...) opt ...)
-          #'(begin
-              (struct struct-id (field.id ...) opt ...)
-              (define (ctor-id x y) (struct-id 'x 'y)))]))]))
-
 
 ;;    (struct++ id maybe-super (field ...) struct-option ...)
 ;;
@@ -91,3 +37,63 @@
 ;;           #:transparent
 ;;           #:guard (lambda (name flavor-type filling cook-temp type)
 ;;                     (values name flavor-type filling cook-temp type)))
+
+;(struct field-info (name getter setter mutable? contract default parent) #:transparent)
+
+(begin-for-syntax
+  (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
+
+(define-syntax (struct++ stx)
+  (define-syntax-class field
+    (pattern id:id
+             #:with ctor-arg #`(#,(syntax->keyword #'id) id)
+             #:with field-contract #'any/c
+             #:with has-optional #'#f
+             #:with wrapper-func #'identity)
+    (pattern [id:id field-contract:expr]
+             #:with ctor-arg #`(#,(syntax->keyword #'id) id)
+             #:with has-optional #'#f
+             #:with wrapper-func #'identity)
+    (pattern [id:id field-contract:expr wrapper-func:expr]
+             #:with has-optional #'#f
+             #:with ctor-arg #`(#,(syntax->keyword #'id) id))
+    (pattern [(id:id default-value:expr)]
+             #:with has-optional #'#t
+             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
+             #:with field-contract #'any/c
+             #:with wrapper-func #'identity)
+    (pattern [(id:id default-value:expr) field-contract:expr]
+             #:with has-optional #'#t
+             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
+             #:with wrapper-func #'identity)
+    (pattern [(id:id default-value:expr) field-contract:expr wrapper-func:expr]
+             #:with has-optional #'#t
+             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
+
+  (syntax-parse stx
+    [(struct++ struct-id:id (field:field ...))
+     (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
+                    [((ctor-arg ...) ...) #'(field.ctor-arg ...)]) ; The double ... flattens one level
+
+       ;; (with-syntax* ([predicate (format-id #'predicate "~a?" #'struct-id)]
+       ;;                [arrow (if (foldl (lambda (x acc) (or x acc))
+       ;;                                  #f
+       ;;                                  (syntax->datum #'(list field.has-optional ...)))
+       ;;                           #'->  ; at least one field has a default value
+       ;;                           #'->)] ; no field has a default value
+       ;;                [ctor-contract #'(arrow field.field-contract ... predicate)]
+       ;;                )
+       #'(begin
+           (struct struct-id (field.id ...) #:transparent)
+           (define (ctor-id ctor-arg ... ...) ; The double ... flattens one level
+             (struct-id field.id ...))
+           (println ctor-id)
+           )
+       )]))
+
+
+(struct++ foo ([(x 17) integer?] [(y 9)] [(z 10)]))
+
+foo++
+
+(foo++ #:x 99)
