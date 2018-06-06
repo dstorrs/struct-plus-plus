@@ -4,11 +4,6 @@
 ;;
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
 
-(require (for-syntax racket/syntax syntax/parse syntax/stx))
-
-(provide struct++
-         )
-
 ;;    (struct++ id maybe-super (field ...) struct-option ...)
 ;;
 ;; All as per standard 'struct', except that field is as follows:
@@ -39,6 +34,10 @@
 ;;                     (values name flavor-type filling cook-temp type)))
 
 ;(struct field-info (name getter setter mutable? contract default parent) #:transparent)
+
+(require handy/utils
+         (for-syntax racket/syntax
+                     syntax/parse))
 
 (begin-for-syntax
   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
@@ -72,20 +71,21 @@
 
   (syntax-parse stx
     [(struct++ struct-id:id (field:field ...))
+     ; A double ... (used repeatedly below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
-                    [((ctor-arg ...) ...) #'(field.ctor-arg ...)]) ; The double ... flattens one level
-
-       ;; (with-syntax* ([predicate (format-id #'predicate "~a?" #'struct-id)]
-       ;;                [arrow (if (foldl (lambda (x acc) (or x acc))
-       ;;                                  #f
-       ;;                                  (syntax->datum #'(list field.has-optional ...)))
-       ;;                           #'->  ; at least one field has a default value
-       ;;                           #'->)] ; no field has a default value
-       ;;                [ctor-contract #'(arrow field.field-contract ... predicate)]
-       ;;                )
+                    [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
+                    [predicate (format-id #'predicate "~a?" #'struct-id)]
+                    [arrow (if (foldl (lambda (x acc) (or x acc))
+                                      #f
+                                      (syntax->datum #'(list field.has-optional ...)))
+                               #'->  ; at least one field has a default value
+                               #'->)] ; no field has a default value
+                    [ctor-contract #'(arrow field.field-contract ... predicate)]
+                    )
        #'(begin
            (struct struct-id (field.id ...) #:transparent)
-           (define (ctor-id ctor-arg ... ...) ; The double ... flattens one level
+           (define/contract (ctor-id ctor-arg ... ...)
+             ctor-contract
              (struct-id field.id ...))
            (println ctor-id)
            )
@@ -93,7 +93,4 @@
 
 
 (struct++ foo ([(x 17) integer?] [(y 9)] [(z 10)]))
-
-foo++
-
 (foo++ #:x 99)
