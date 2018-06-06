@@ -78,7 +78,7 @@
                     [arrow (if (foldl (lambda (x acc) (or x acc))
                                       #f
                                       (syntax->datum #'(list field.has-optional ...)))
-                               #'->  ; at least one field has a default value
+                               #'->*  ; at least one field has a default value
                                #'->)] ; no field has a default value
                     [ctor-contract #'(arrow field.field-contract ... predicate)]
                     )
