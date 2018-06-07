@@ -1,7 +1,7 @@
 #lang racket
 
 (require handy/try handy/utils)
-(print-syntax-width 100000)
+
 ;;    syntax->keyword and struct/kw were lifted from:
 ;;
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
@@ -123,8 +123,8 @@
                 ;                [maker            symbol?            symbol->string]
                 [(color 9)        natural-number/c   add1]
                 ) #:transparent)
-;(ball++ #:type 17)
+
+(print-syntax-width 100000)
 (say "fail: " (exn:fail:contract?
                (defatalize (ball++ #:type 'soccer #:purchase-epoch 'a ))))
 (ball++ #:type 'soccer #:purchase-epoch 193939 )
-;(say "contract failed?: " (exn:fail:contract? (defatalize (ball++ #:color 'a))))
