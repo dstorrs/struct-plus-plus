@@ -55,7 +55,8 @@
       (pattern (required?:boolean  (kw:keyword contr:expr))))
     ;;
     (syntax-parse stx
-      [(struct++ (item:contract-spec ...+ predicate))
+      #:datum-literals (make-ctor-contract)
+      [(make-ctor-contract (item:contract-spec ...+ predicate))
        (let-values
            ([(mandatory optional)
              (partition car
