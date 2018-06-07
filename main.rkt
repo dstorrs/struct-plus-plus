@@ -1,5 +1,7 @@
 #lang racket
 
+(require handy/try handy/utils)
+(print-syntax-width 100000)
 ;;    syntax->keyword and struct/kw were lifted from:
 ;;
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
@@ -35,62 +37,94 @@
 
 ;(struct field-info (name getter setter mutable? contract default parent) #:transparent)
 
-(require handy/utils
-         (for-syntax racket/syntax
-                     syntax/parse))
+(require (for-syntax syntax/parse/experimental/template
+                     syntax/parse
+                     racket/syntax
+                     (only-in racket/list partition flatten)
+                     )
+         syntax/parse/experimental/template
+         racket/syntax
+         syntax/parse)
 
 (begin-for-syntax
   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
 
 (define-syntax (struct++ stx)
+  (define-template-metafunction (make-ctor-contract stx)
+    (define-syntax-class contract-spec
+      (pattern (required?:boolean  (kw:keyword contr:expr))))
+    ;;
+    (syntax-parse stx
+      [(struct++ (item:contract-spec ...+ predicate))
+       (let-values
+           ([(mandatory optional)
+             (partition car
+                        (syntax->datum #'(item ...)))])
+         (define flat-mand (flatten (map cdr mandatory)))
+         (define flat-opt  (flatten (map cdr optional)))
+         (cond [(null? flat-opt) #`(-> #,@flat-mand predicate)]
+               [else #`(->* (#,@flat-mand) (#,@flat-opt) predicate)]))]))
+  ;;
+  (define-syntax-class contract-spec
+    (pattern (required?:boolean  (kw:keyword contr:expr))))
+  ;;
   (define-syntax-class field
     (pattern id:id
+             #:with kw (syntax->keyword #'id)
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with field-contract #'any/c
-             #:with has-optional #'#f
+             #:with required? #'#t
              #:with wrapper-func #'identity)
     (pattern [id:id field-contract:expr]
+             #:with kw (syntax->keyword #'id)
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-             #:with has-optional #'#f
+             #:with required? #'#t
              #:with wrapper-func #'identity)
     (pattern [id:id field-contract:expr wrapper-func:expr]
-             #:with has-optional #'#f
+             #:with kw (syntax->keyword #'id)
+             #:with required? #'#t
              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
     (pattern [(id:id default-value:expr)]
-             #:with has-optional #'#t
+             #:with kw (syntax->keyword #'id)
+             #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
              #:with field-contract #'any/c
              #:with wrapper-func #'identity)
     (pattern [(id:id default-value:expr) field-contract:expr]
-             #:with has-optional #'#t
+             #:with kw (syntax->keyword #'id)
+             #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
              #:with wrapper-func #'identity)
     (pattern [(id:id default-value:expr) field-contract:expr wrapper-func:expr]
-             #:with has-optional #'#t
+             #:with kw (syntax->keyword #'id)
+             #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
-
+  ;;
   (syntax-parse stx
-    [(struct++ struct-id:id (field:field ...))
+    ((struct++ struct-id:id (field:field ...) opt ...)
      ; A double ... (used repeatedly below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
                     [predicate (format-id #'predicate "~a?" #'struct-id)]
-                    [arrow (if (foldl (lambda (x acc) (or x acc))
-                                      #f
-                                      (syntax->datum #'(list field.has-optional ...)))
-                               #'->*  ; at least one field has a default value
-                               #'->)] ; no field has a default value
-                    [ctor-contract #'(arrow field.field-contract ... predicate)]
                     )
-       #'(begin
-           (struct struct-id (field.id ...) #:transparent)
-           (define/contract (ctor-id ctor-arg ... ...)
-             ctor-contract
-             (struct-id field.id ...))
-           (println ctor-id)
-           )
-       )]))
+       (template
+        (begin
+          (struct struct-id (field.id ...) opt ...)
 
+          (define/contract (ctor-id ctor-arg ... ...)
+            (make-ctor-contract
+             ((field.required? (field.kw field.field-contract)) ... predicate))
+            (struct-id (field.wrapper-func field.id) ...))))))))
 
-(struct++ foo ([(x 17) integer?] [(y 9)] [(z 10)]))
-(foo++ #:x 99)
+(struct++ ball (type
+                ; field  default   contract           wrapper func
+                [(owner 'bob)]
+                [purchase-epoch   natural-number/c]
+                ;                [maker            symbol?            symbol->string]
+                [(color 9)        natural-number/c   add1]
+                ) #:transparent)
+;(ball++ #:type 17)
+(say "fail: " (exn:fail:contract?
+               (defatalize (ball++ #:type 'soccer #:purchase-epoch 'a ))))
+(ball++ #:type 'soccer #:purchase-epoch 193939 )
+;(say "contract failed?: " (exn:fail:contract? (defatalize (ball++ #:color 'a))))
