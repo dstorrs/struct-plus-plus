@@ -1,50 +1,63 @@
 #lang racket
 
-(require handy/try handy/utils)
-
-;;    syntax->keyword and struct/kw were lifted from:
-;;
-;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
-
-;;    (struct++ id maybe-super (field ...) struct-option ...)
-;;
-;; All as per standard 'struct', except that field is as follows:
-;;
-;;    field =   field-id
-;;            | [(field-id default-value)]
-;;            | [field-id field-contract]
-;;            | [field-id field-contract wrapper-func]
-;;            | [(field-id default-value) field-contract]
-;;            | [(field-id default-value) field-contract wrapper-func]
-;;
-;; (struct food (name flavor-type))
-;;
-;; (struct++ pie (filling cook-temp))
-;; (struct++ pie (filling [(cook-temp 450)]))
-;; (struct++ pie (filling [cook-temp       exact-positive-integer?      ]))
-;; (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
-;; (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
-;; (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
-;; (struct++ pie food (filling flavor-type))
-;; (struct++ pie
-;;           food
-;;           ([filling (or/c 'berry "berry" 'chocolate "chocolate" 'cheese "cheese")
-;;                     symbol-string->string]
-;;            [(cook-temp 450) exact-positive-integer?)])
-;;           #:transparent
-;;           #:guard (lambda (name flavor-type filling cook-temp type)
-;;                     (values name flavor-type filling cook-temp type)))
-
-;(struct field-info (name getter setter mutable? contract default parent) #:transparent)
-
 (require (for-syntax syntax/parse/experimental/template
                      syntax/parse
                      racket/syntax
                      (only-in racket/list partition flatten)
+                     syntax/parse/class/struct-id  ; package: syntax/classes-lib
                      )
          syntax/parse/experimental/template
          racket/syntax
          syntax/parse)
+
+(provide struct++)
+
+;; This is an extended version of Racket's <struct>.
+;;
+;; (struct++ type:id maybe-super-type:id (field ...) struct-option ...)
+;;
+;;    maybe-super = 
+;;                | super-id    
+;;      
+;;          field =  field-id
+;;                | [field-id                   field-contract               ]
+;;                | [field-id                   field-contract   wrapper-func]
+;;                | [(field-id  default-value)                               ]
+;;                | [(field-id  default-value)  field-contract               ]
+;;                | [(field-id  default-value)  field-contract   wrapper-func]
+;;
+;; field-contract = contract?
+;;
+;;  struct-option = as per the 'struct' builtin 
+;;
+;;         IMPORTANT:
+;;       Field options (#:mutable and #:auto) are not supported.
+;;       Note the extra set of parens when setting a default!
+;;
+;; @@TODO:  
+;;    - field options
+;;    - functional setters
+;;    - supertype fields appear in the kw signature
+;;    - reflection
+;;
+;;   (struct food (name flavor-type))
+;;  
+;;   (struct++ pie (filling cook-temp))           
+;;   (struct++ pie (filling [(cook-temp 450)]))
+;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ])) 
+;;   (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
+;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
+;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
+;;   (struct++ pie food (filling flavor-type))
+;;   (struct++ pie
+;;             food
+;;             ([filling (or/c 'berry "berry" 'chocolate "chocolate" 'cheese "cheese")
+;;                       symbol-string->string]
+;;              [(cook-temp 450) exact-positive-integer?)])
+;;             #:transparent
+;;             #:guard
+;;               (lambda (name flavor-type filling cook-temp type)    ; this is here just to
+;;                 (values name flavor-type filling cook-temp type))) ; prove you can do it
 
 (begin-for-syntax
   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
@@ -53,7 +66,6 @@
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
       (pattern (required?:boolean  (kw:keyword contr:expr))))
-    ;;
     (syntax-parse stx
       #:datum-literals (make-ctor-contract)
       [(make-ctor-contract (item:contract-spec ...+ predicate))
@@ -61,9 +73,11 @@
            ([(mandatory optional)
              (partition car
                         (syntax->datum #'(item ...)))])
-         (define flat-mand (flatten (map cdr mandatory)))
-         (define flat-opt  (flatten (map cdr optional)))
-         (cond [(null? flat-opt) #`(-> #,@flat-mand predicate)]
+
+         (define flat-mand (if (null? mandatory) '() (foldl append '() (map cadr mandatory))))
+         (define flat-opt  (if (null? optional)  '() (foldl append '() (map cadr optional ))))
+         
+         (cond [(null? flat-opt) #`(-> #,@flat-mand  predicate)]
                [else #`(->* (#,@flat-mand) (#,@flat-opt) predicate)]))]))
   ;;
   (define-syntax-class contract-spec
@@ -103,10 +117,10 @@
   ;;
   (syntax-parse stx
     ((struct++ struct-id:id (~optional super-type:id) (field:field ...) opt ...)
-     ; A double ... (used repeatedly below) flattens one level
+     ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
-                    [predicate (format-id #'predicate "~a?" #'struct-id)]
+                    [predicate (format-id #'struct-id "~a?" #'struct-id)]
                     )
        (template
         (begin
@@ -117,22 +131,32 @@
              ((field.required? (field.kw field.field-contract)) ... predicate))
             (struct-id (field.wrapper-func field.id) ...))))))))
 
-;; (struct++ ball (type
-;;                 ; field  default   contract           wrapper func
-;;                 [(owner 'bob)]
-;;                 [purchase-epoch   natural-number/c]
-;;                 ;                [maker            symbol?            symbol->string]
-;;                 [(color 9)        natural-number/c   add1]
-;;                 ) #:transparent)
-
-(print-syntax-width 100000)
-;; (say "fail: " (exn:fail:contract?
-;;                (defatalize (ball++ #:type 'soccer #:purchase-epoch 'a ))))
-;; (ball++ #:type 'soccer #:purchase-epoch 193939 )
 
 
-(struct++ thing (name) #:transparent)
-(thing 'ball)
-(thing++ #:name 'ball)
 
-(struct++ sandwich thing (break filler) #:transparent)
+(struct++ thing (name)         #:transparent)
+; none
+; default
+; contract
+; contract + wrapper
+; default + contract
+; default + contract + wrapper
+(struct++ ball  (owner
+                 [(maker 'adidas)]
+                 ; error: 7 8 are spliced into contract as arguments instead of or/c
+                 [color (or/c 'red 'white 'black)]
+
+                 ; works
+                 [texture  (or/c 'rough 'smooth)]
+                 [(weight 100) exact-positive-integer?]
+                 [(shear-force 20) exact-positive-integer? number->string]
+                 )
+          #:transparent)
+
+(thing   'wilson)
+(thing++ #:name 'volleyball-friend)
+(ball++ #:owner 'bob
+        #:color 'red
+        #:texture 'rough
+        #:weight 200
+        #:shear-force 19)
