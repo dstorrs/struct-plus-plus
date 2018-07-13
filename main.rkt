@@ -42,6 +42,7 @@
 ;;
 ;;   (struct food (name flavor-type))
 ;;  
+;;      ;; Various possibilities.  Obviously you can't use them all in one file.
 ;;   (struct++ pie (filling cook-temp))           
 ;;   (struct++ pie (filling [(cook-temp 450)]))
 ;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ])) 
@@ -59,6 +60,9 @@
 ;;               (lambda (name flavor-type filling cook-temp type)    ; this is here just to
 ;;                 (values name flavor-type filling cook-temp type))) ; prove you can do it
 
+
+;;    syntax->keyword was lifted from:
+;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
 (begin-for-syntax
   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
 
@@ -82,7 +86,7 @@
   ;;
   (define-syntax-class field
     (pattern id:id
-             #:with kw (syntax->keyword #'id)
+             #:with kw (syntax->keyword #'id) ; Ugly to repeat in each case, but clearer
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with field-contract #'any/c
              #:with required? #'#t
