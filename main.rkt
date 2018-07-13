@@ -80,9 +80,6 @@
          (cond [(null? flat-opt) #`(-> #,@flat-mand  predicate)]
                [else #`(->* (#,@flat-mand) (#,@flat-opt) predicate)]))]))
   ;;
-  (define-syntax-class contract-spec
-    (pattern (required?:boolean  (kw:keyword contr:expr))))
-  ;;
   (define-syntax-class field
     (pattern id:id
              #:with kw (syntax->keyword #'id)
