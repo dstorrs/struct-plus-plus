@@ -3,7 +3,7 @@
 (require (for-syntax syntax/parse/experimental/template
                      syntax/parse
                      racket/syntax
-                     (only-in racket/list partition flatten)
+                     (only-in racket/list partition flatten append-map)
                      syntax/parse/class/struct-id  ; package: syntax/classes-lib
                      )
          syntax/parse/experimental/template
@@ -75,11 +75,13 @@
       [(make-ctor-contract (item:contract-spec ...+ predicate))
        (let-values
            ([(mandatory optional)
-             (partition car
-                        (syntax->datum #'(item ...)))])
+             (partition (syntax-parser [(flag _) (syntax-e #'flag)])
+                        (syntax->list #'(item ...)))])
 
-         (define flat-mand (if (null? mandatory) '() (foldl append '() (map cadr mandatory))))
-         (define flat-opt  (if (null? optional)  '() (foldl append '() (map cadr optional ))))
+         (define flat-mand (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
+                                       mandatory))
+         (define flat-opt (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
+                                        optional))
          
          (cond [(null? flat-opt) #`(-> #,@flat-mand  predicate)]
                [else #`(->* (#,@flat-mand) (#,@flat-opt) predicate)]))]))
