@@ -1,6 +1,8 @@
 #lang racket
 
 (require (for-syntax racket/syntax syntax/parse))
+;; (require (for-syntax handy/utils))
+;; (require handy/utils)
 
 (provide make-functional-setter)
 
@@ -30,19 +32,21 @@
 ;;
 (define-syntax (make-functional-setter stx)
   (syntax-parse stx
+    #:literals (make-functional-setter)
+    
     ; First, grab the name of the struct and the field we're making
     ; this for.  We'll build some stuff here then re-parse instead of
     ; copy/pasting for every pattern match
-    [(_ type-name field-name ignored ...)
+    [(make-functional-setter type-name field-name ignored ...)
      (with-syntax* ([func-name   (format-id #'type-name "set-~a-~a" #'type-name #'field-name)]
                     [func-header #'(func-name the-struct val)]
                     [definer     #'define]
-                    [type-pred   (format-id #'type-pred "~a?" #'type-name)]
+                    [type-pred   (format-id #'type-name "~a?" #'type-name)]
                     [func-body   #'(struct-copy type-name the-struct [field-name val])]
                     )
        (syntax-parse stx
-         [(_ _ _) #'(definer func-header func-body)]
-         [(_ _ _ field-contract:expr ignored ...)
+         [(make-functional-setter type-name field-name) #'(definer func-header func-body)]
+         [(make-functional-setter type-name field-name field-contract:expr ignored ...)
           (with-syntax ([definer #'define/contract]
                         [func-contract #'(-> type-pred field-contract type-pred)])
             (syntax-parse stx
