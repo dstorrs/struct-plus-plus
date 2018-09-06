@@ -16,9 +16,9 @@
 ;;
 ;; (struct++ type:id maybe-super-type:id (field ...) struct-option ...)
 ;;
-;;    maybe-super = 
-;;                | super-id    
-;;      
+;;    maybe-super =
+;;                | super-id
+;;
 ;;          field =  field-id
 ;;                | [field-id                   field-contract               ]
 ;;                | [field-id                   field-contract   wrapper-func]
@@ -28,24 +28,24 @@
 ;;
 ;; field-contract = contract?
 ;;
-;;  struct-option = as per the 'struct' builtin 
+;;  struct-option = as per the 'struct' builtin
 ;;
 ;;         IMPORTANT:
 ;;       Field options (#:mutable and #:auto) are not supported.
 ;;       Note the extra set of parens when setting a default!
 ;;
-;; @@TODO:  
+;; @@TODO:
 ;;    - field options
 ;;    - functional setters
 ;;    - supertype fields appear in the kw signature
 ;;    - reflection
 ;;
 ;;   (struct food (name flavor-type))
-;;  
+;;
 ;;      ;; Various possibilities.  Obviously you can't use them all in one file.
-;;   (struct++ pie (filling cook-temp))           
+;;   (struct++ pie (filling cook-temp))
 ;;   (struct++ pie (filling [(cook-temp 450)]))
-;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ])) 
+;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ]))
 ;;   (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
@@ -70,6 +70,7 @@
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
       (pattern (required?:boolean  (kw:keyword contr:expr))))
+    ;;
     (syntax-parse stx
       #:datum-literals (make-ctor-contract)
       [(make-ctor-contract (item:contract-spec ...+ predicate))
@@ -80,11 +81,10 @@
 
          (define flat-mand (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
                                        mandatory))
-         (define flat-opt (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
-                                        optional))
+         (define flat-opt  (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
+                                       optional))
          
-         (cond [(null? flat-opt) #`(-> #,@flat-mand  predicate)]
-               [else #`(->* (#,@flat-mand) (#,@flat-opt) predicate)]))]))
+         #`(->* (#,@flat-mand) (#,@flat-opt) predicate))]))
   ;;
   (define-syntax-class field
     (pattern id:id
@@ -133,4 +133,3 @@
             (make-ctor-contract
              ((field.required? (field.kw field.field-contract)) ... predicate))
             (struct-id (field.wrapper-func field.id) ...))))))))
-
