@@ -4,6 +4,7 @@
 (require handy/test-more
          "../make_functional_setter.rkt")
 
+(expect-n-tests 8)
 
 (when #t
   (test-suite
