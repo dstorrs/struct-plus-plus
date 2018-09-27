@@ -1,8 +1,6 @@
 #lang racket
 
 (require (for-syntax racket/syntax syntax/parse))
-;; (require (for-syntax handy/utils))
-;; (require handy/utils)
 
 (provide make-functional-setter)
 
