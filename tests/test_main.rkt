@@ -3,7 +3,7 @@
 (require handy/test-more
          "../main.rkt")
 
-(expect-n-tests 8)
+(expect-n-tests 15)
 
 (when #t
   (test-suite
@@ -56,3 +56,34 @@
    
    ))
 
+(when #t
+  (test-suite
+   "functional setters"
+
+   (struct++ book ([title string?][pages exact-positive-integer?]) #:transparent)
+   
+   (define b (book++ #:title "title" #:pages 188))
+   (is b
+       (book "title" 188)
+       "created book successfully")
+
+   (is (set-book-title b "newtitle")
+       (book "newtitle" 188)
+       "successfully set the title")       
+
+   (is b
+       (book "title" 188)
+       "it was a functional update, not a mutation")
+
+   (is (set-book-pages b 200)
+       (book "title" 200)
+       "successfully set number of pages")
+
+   (throws (thunk (set-book-pages b 'invalid))
+           exn:fail:contract?
+           "set-book-pages respects datatype")
+
+   (throws (thunk (set-book-title b 'invalid))
+           exn:fail:contract?
+           "set-book-title respects datatype")
+   ))

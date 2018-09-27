@@ -43,7 +43,7 @@
 ;;       setting a default.
 ;;
 ;; @@TODO:
-;;    - functional setters/updaters
+;;    - functional updaters
 ;;    - support supertypes
 ;;    - reflection
 ;;    - ignore the #:mutable struct option so we don't invalidate contracts
@@ -142,9 +142,13 @@
                     )
        (template
         (begin
+          ;
           (struct struct-id (field.id ...) opt ...)
-
+          ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
              ((field.required? (field.kw field.field-contract)) ... predicate))
-            (struct-id (field.wrapper-func field.id) ...))))))))
+            (struct-id (field.wrapper-func field.id) ...))
+          ;
+          (make-functional-setter struct-id field.id field.field-contract field.wrapper-func) ...
+          ))))))
