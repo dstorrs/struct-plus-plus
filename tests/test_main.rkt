@@ -3,11 +3,11 @@
 (require handy/test-more
          "../main.rkt")
 
-(expect-n-tests 7)
+(expect-n-tests 8)
 
 (when #t
   (test-suite
-   "struct++"
+   "struct++ definitions"
 
    (struct thing (name)         #:transparent)
    (struct++ ball  (owner
@@ -45,6 +45,14 @@
    (is (ball++ #:owner 'tom #:color 'red #:texture 'rough #:shear-force 99)
        (ball 'tom 'adidas 'red "rough" 100 "99")
        "wrapper around field 'shear-force' worked when field was set")
+
+
+   ; wrapper that sorts the data, since that's probably a common use case
+   (struct++ game ([(player-names '()) (listof non-empty-string?) (curryr sort string<?)])
+             #:transparent)
+   (is (game++ #:player-names '("fred" "bob" "zack"))
+       (game++ #:player-names '("bob" "fred" "zack"))
+       @~a{(game++ '("fred" "bob" "zack")) sorted its player names upon creation})
    
    ))
 
