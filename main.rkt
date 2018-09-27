@@ -11,14 +11,7 @@
 
 (provide struct++)
 
-;; This is an extended version of Racket's <struct>.
-;;
-;;  !!!!----------------------------------------------------------------------!!!!
-;;  !!!!                             IMPORTANT                                !!!!
-;;  !!!!----------------------------------------------------------------------!!!!
-;;  !!!!                                                                      !!!!
-;;  !!!!  struct++ does not currently support derived types or mutable fields !!!!
-;;  !!!!----------------------------------------------------------------------!!!!
+;; See scribblings/struct++.scrbl for full details.  Cheat sheet:
 ;;
 ;; (struct++ type:id (field ...) struct-option ...)
 ;;
@@ -33,48 +26,15 @@
 ;;
 ;; struct-option = as per the 'struct' builtin  (e.g. #:transparent, #:guard, etc)
 ;;
-;;         IMPORTANT:
-
-;;       Field options (#:mutable and #:auto) are not supported.
-;;       There are no plans to support #:mutable in future and #:auto
-;;       is unnecessary, since you can set per-field defaults.
 ;;
-;;       Speaking of defaults, note the extra set of parens when
-;;       setting a default.
-;;
-;; @@TODO:
-;;    - functional updaters
-;;    - support supertypes
-;;    - reflection
-;;    - ignore the #:mutable struct option so we don't invalidate contracts
-;;
-;;  EXAMPLES:
-;;
-;;      ;; Various possible ways to declare a 'pie' struct
-;;   (struct++ pie (filling cook-temp))
-;;   (struct++ pie (filling [(cook-temp 450)]))
-;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ]))
-;;   (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
-;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
+;; Example of declaration with all the bells and whistles:
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
-;;   (struct++ pie
-;;             ([filling (or/c 'berry "berry" 'chocolate "chocolate" 'cheese "cheese")
-;;                       symbol-string->string]
-;;              [(cook-temp 450) exact-positive-integer?)])
-;;             #:transparent
-;;             ;
-;;             ; set a guard on the struct so even the non-keyword constructor 
-;;             ; is safe.  Note that the pie? predicate is not available at
-;;             ; this point, so you can't include it in the contract.
-;;             #:guard  
-;;               (with-contract 'pie
-;;                              (-> (or/c 'berry "berry" 
-;;                                        'chocolate "chocolate"
-;;                                        'cheese "cheese")
-;;                                  exact-positive-integer?
-;;                                  any)
-;;                              (lambda (filling cook-temp type)  
-;;                                (values filling cook-temp))))    
+;;
+;; Automatically creates the "pie++" keyword constructor, but also the
+;; set-pie-filling and set-pie-cook-temp functional setters.
+
+
+
 
 ;;    syntax->keyword was lifted from:
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
