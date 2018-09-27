@@ -6,18 +6,21 @@
                      (only-in racket/list partition flatten append-map)
                      syntax/parse/class/struct-id  ; package: syntax/classes-lib
                      )
-         syntax/parse/experimental/template
-         racket/syntax
-         syntax/parse)
+         "make_functional_setter.rkt"
+         )
 
 (provide struct++)
 
 ;; This is an extended version of Racket's <struct>.
 ;;
-;; (struct++ type:id maybe-super-type:id (field ...) struct-option ...)
+;;  !!!!----------------------------------------------------------------------!!!!
+;;  !!!!                             IMPORTANT                                !!!!
+;;  !!!!----------------------------------------------------------------------!!!!
+;;  !!!!                                                                      !!!!
+;;  !!!!  struct++ does not currently support derived types or mutable fields !!!!
+;;  !!!!----------------------------------------------------------------------!!!!
 ;;
-;;    maybe-super =
-;;                | super-id
+;; (struct++ type:id (field ...) struct-option ...)
 ;;
 ;;          field =  field-id
 ;;                | [field-id                   field-contract               ]
@@ -28,38 +31,50 @@
 ;;
 ;; field-contract = contract?
 ;;
-;;  struct-option = as per the 'struct' builtin
+;; struct-option = as per the 'struct' builtin  (e.g. #:transparent, #:guard, etc)
 ;;
 ;;         IMPORTANT:
+
 ;;       Field options (#:mutable and #:auto) are not supported.
-;;       Note the extra set of parens when setting a default!
+;;       There are no plans to support #:mutable in future and #:auto
+;;       is unnecessary, since you can set per-field defaults.
+;;
+;;       Speaking of defaults, note the extra set of parens when
+;;       setting a default.
 ;;
 ;; @@TODO:
-;;    - field options
-;;    - functional setters
-;;    - supertype fields appear in the kw signature
+;;    - functional setters/updaters
+;;    - support supertypes
 ;;    - reflection
+;;    - ignore the #:mutable struct option so we don't invalidate contracts
 ;;
-;;   (struct food (name flavor-type))
+;;  EXAMPLES:
 ;;
-;;      ;; Various possibilities.  Obviously you can't use them all in one file.
+;;      ;; Various possible ways to declare a 'pie' struct
 ;;   (struct++ pie (filling cook-temp))
 ;;   (struct++ pie (filling [(cook-temp 450)]))
 ;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ]))
 ;;   (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
-;;   (struct++ pie food (filling flavor-type))
 ;;   (struct++ pie
-;;             food
 ;;             ([filling (or/c 'berry "berry" 'chocolate "chocolate" 'cheese "cheese")
 ;;                       symbol-string->string]
 ;;              [(cook-temp 450) exact-positive-integer?)])
 ;;             #:transparent
-;;             #:guard
-;;               (lambda (name flavor-type filling cook-temp type)    ; this is here just to
-;;                 (values name flavor-type filling cook-temp type))) ; prove you can do it
-
+;;             ;
+;;             ; set a guard on the struct so even the non-keyword constructor 
+;;             ; is safe.  Note that the pie? predicate is not available at
+;;             ; this point, so you can't include it in the contract.
+;;             #:guard  
+;;               (with-contract 'pie
+;;                              (-> (or/c 'berry "berry" 
+;;                                        'chocolate "chocolate"
+;;                                        'cheese "cheese")
+;;                                  exact-positive-integer?
+;;                                  any)
+;;                              (lambda (filling cook-temp type)  
+;;                                (values filling cook-temp))))    
 
 ;;    syntax->keyword was lifted from:
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
@@ -119,7 +134,7 @@
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
   (syntax-parse stx
-    ((struct++ struct-id:id (~optional super-type:id) (field:field ...) opt ...)
+    ((struct++ struct-id:id (field:field ...) opt ...)
      ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
