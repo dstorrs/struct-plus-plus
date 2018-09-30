@@ -53,13 +53,13 @@
            ([(mandatory optional)
              (partition (syntax-parser [(flag _) (syntax-e #'flag)])
                         (syntax->list #'(item ...)))])
+         (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
+                       (((_ (opt-kw  opt-contract)) ...)  optional))
+           (template (->* ((?@ mand-kw mand-contract) ...)
+                          ((?@ opt-kw opt-contract) ...)
+                          predicate))))]))
 
-         (define flat-mand (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
-                                       mandatory))
-         (define flat-opt  (append-map (syntax-parser [(_ (kw contr)) (list #'kw #'contr)])
-                                       optional))
-         
-         #`(->* (#,@flat-mand) (#,@flat-opt) predicate))]))
+
   ;;
   (define-syntax-class field
     (pattern id:id
