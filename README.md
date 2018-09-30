@@ -29,7 +29,7 @@ NOTE:  The #:mutable struct option might be disallowed in a future release.
 (struct++ pie (filling [(cook-temp 450) exact-positive-integer? add1]) #:transparent)
 ```
 
-The 'pie' structure has two fields, filling and cook-temp.  filling accepts any value.  cook-temp must be an exact positive integer, has a default value of 450 degrees, and its value (default or otherwise) will be passed through the F->C function at struct creation and when the functional setter is used.  
+The 'pie' structure has two fields, filling and cook-temp.  filling accepts any value.  cook-temp must be an exact positive integer, has a default value of 450 degrees, and its value (default or otherwise) will be passed through the F->C function at struct creation and when the functional setter / updater are used.  
 
 The above declaration auto-generates the following functions:
 
@@ -45,6 +45,10 @@ The above declaration auto-generates the following functions:
 (define/contract (set-pie-cook-temp p new-val)
   (-> pie? exact-positive-integer? pie?)
   (struct-copy pie p [cook-temp (F->C new-val)]))
+
+(define/contract (update-pie-cook-temp p func)
+  (-> pie? (-> any/c <field-contract>) pie?)
+  (struct-copy pie p [cook-temp (F->C (func new-val))]))
 ~~~~
 
 Note that struct-copy cannot properly deal with supertypes, meaning that neither can struct++.  See the [struct-update](https://docs.racket-lang.org/struct-update/index.html "lexi-lambda functional updater module") module for details and an alternative to struct++ that handles supertypes but does not support the other functionality of struct++.
