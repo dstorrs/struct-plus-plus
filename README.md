@@ -20,7 +20,6 @@ struct++ does not currently support:
 * Supertypes
 * The #:auto field-level option.  This isn't necessary since field-level defaults are supported.
 * The #:mutable field-level option, although the struct-level #:mutable keyword is accepted. 
-* auto-generating functional updaters along with the functional setters
 
 NOTE:  The #:mutable struct option might be disallowed in a future release.
 
