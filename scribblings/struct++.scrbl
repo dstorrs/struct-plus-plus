@@ -102,9 +102,8 @@ Also, struct options are supported:
 @section{TODO}
 
 @itemlist[
-	@item{functional updaters in addition to the setters}
-        @item{support supertypes; means we can't use struct-copy.  See the @racketmodname[struct-update] module for why, and for solutions}
-        @item{reflection; simplify introspection by making the values from struct-id available at runtime} 
+        @item{support supertypes.  This means we can't use struct-copy.  See the @racketmodname[struct-update] module for why, and for solutions}
+        @item{reflection.  Simplify introspection by making the values from struct-id available at runtime} 
 ]
 
 @section{Ramblings}
