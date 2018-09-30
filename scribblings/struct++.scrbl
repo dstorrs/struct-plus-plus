@@ -67,6 +67,10 @@ It also creates the following functions:
    (define/contract (set-pie-cook-temp p new-temp)
      (-> pie? exact-positive-integer? pie?)
      (struct-copy pie [cook-temp (F->C new-temp)]))
+
+   (define/contract (update-pie-cook-temp p func)
+     (-> pie? (-> any/c exact-positive-integer?) pie?)
+     (struct-copy pie [cook-temp (F->C (func <current-value>))]))
 ]
 
 You can leave out some or all of the field options:

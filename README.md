@@ -34,21 +34,12 @@ The 'pie' structure has two fields, filling and cook-temp.  filling accepts any 
 The above declaration auto-generates the following functions:
 
 ~~~~
-(define/contract (pie++ #:filling filling #:cook-temp [cook-temp 450])
-  (->* (#:filling any/c) (#:cook-temp exact-positive-integer?) pie?)
-  (pie filling (F->C cook-temp)))
-  
-(define/contract (set-pie-filling p new-val)
-  (-> pie? any/c pie?)
-  (struct-copy pie p [filling new-val]))
+pie++                 :: keyword constructor
+set-pie-filling       :: functional setter
+update-pie-filling    :: functional update
 
-(define/contract (set-pie-cook-temp p new-val)
-  (-> pie? exact-positive-integer? pie?)
-  (struct-copy pie p [cook-temp (F->C new-val)]))
-
-(define/contract (update-pie-cook-temp p func)
-  (-> pie? (-> any/c <field-contract>) pie?)
-  (struct-copy pie p [cook-temp (F->C (func new-val))]))
+set-pie-cook-temp     :: functional setter
+update-pie-cook-temp  :: functional update
 ~~~~
 
 Note that struct-copy cannot properly deal with supertypes, meaning that neither can struct++.  See the [struct-update](https://docs.racket-lang.org/struct-update/index.html "lexi-lambda functional updater module") module for details and an alternative to struct++ that handles supertypes but does not support the other functionality of struct++.
