@@ -5,7 +5,7 @@
 @title{struct++}
 @author{David K. Storrs}
 
-@defmodule[struct++]
+@defmodule[struct-plus-plus]
 
 @section{Introduction}
 
@@ -37,9 +37,10 @@ WARNING: The #:mutable struct option is currently supported but may be disallowe
 
 @section{Examples}
 
-Various possible ways to declare a @verbatim{pie} struct:
+Declare a @verbatim{pie} struct:
 
-@racketblock[   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ])) ]
+@racketblock[ (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
+]
 
 
 The above line declares a struct named @racketidfont{pie}.
