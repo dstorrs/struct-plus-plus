@@ -4,14 +4,14 @@
                      syntax/parse
                      racket/syntax
                      (only-in racket/list partition flatten append-map)
-                     syntax/parse/class/struct-id  ; package: syntax/classes-lib
+                     syntax/parse/class/struct-id  ; package: syntax-classes-lib
                      )
          "make_functional_setter.rkt"
          )
 
 (provide struct++)
 
-;; See scribblings/struct++.scrbl for full details.  Cheat sheet:
+;; See scribblings/struct-plus-plus.scrbl for full details.  Cheat sheet:
 ;;
 ;; (struct++ type:id (field ...) struct-option ...)
 ;;
