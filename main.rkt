@@ -28,13 +28,17 @@
 ;;
 ;;
 ;; Example of declaration with all the bells and whistles:
+;;
+;;   ; Declare a struct
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
 ;;
-;; Automatically creates the "pie++" keyword constructor, but also the
-;; set-pie-filling and set-pie-cook-temp functional setters.
-
-
-
+;;   ; Create an instance, set an element, update an element.  Both
+;;   ; set and update are functional changes, not mutators.
+;;   (define p (pie++ #:filling 'berry))   ; the #:cook-temp keyword will default
+;;   (set-pie-filling p 'cherry)                  
+;;   (update-pie-filling p (lambda (x) 'unknown)) 
+;;   (set-pie-cook-temp p 'invalid) ; EXCEPTION!  Field requires an exact-positive-integer?
+;;
 
 ;;    syntax->keyword was lifted from:
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
