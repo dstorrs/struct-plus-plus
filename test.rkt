@@ -23,7 +23,12 @@
   (syntax-parse stx
     #:datum-literals (struct++)
     [(struct++ struct-name (item:field ...) opt ...)
+     (with-syntax ([ctor-name (format-id #'struct-name "~a++" #'struct-name)]))
      (template (begin  (struct struct-name (item.id ...) opt ...)
+                       (define/contract (ctor-name)
+                         (-> any/c)
+                         'kw-ctor
+                         )
                         ))
      ]))
 
@@ -35,8 +40,8 @@
                  [(species 'unknown) symbol-string? symbol-string->symbol]
                  )
           #:transparent)
-
 (thing 'name 'king 'order 'color 7 'species)
+(thing++)
 ;; ;;    syntax->keyword was lifted from:
 ;; ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
 ;; (begin-for-syntax
