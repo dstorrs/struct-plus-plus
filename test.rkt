@@ -18,16 +18,19 @@
     (pattern (~or id:id 
                   [id:id contract:expr (~optional wrapper:expr)]
                   [(id:id (~optional default:expr))]
-                  [(id:id default:expr) contract:expr (~optional wrapper:expr)])))
-
+                  [(id:id default:expr) contract:expr (~optional wrapper:expr)]))
+    ;#:with ctor-arg #`(#,(syntax->keyword #'id) (?? default))
+    )
   (syntax-parse stx
     #:datum-literals (struct++)
     [(struct++ struct-name (item:field ...) opt ...)
-     (with-syntax ([ctor-name (format-id #'struct-name "~a++" #'struct-name)])
+     (with-syntax ([ctor-name (format-id #'struct-name "~a++" #'struct-name)]
+                   [pred  (format-id #'struct-name "~a?" #'struct-name)]
+                   )
        (template (begin  (struct struct-name (item.id ...) opt ...)
                          (define/contract (ctor-name)
-                           (-> any/c)
-                           'kw-ctor
+                           (-> pred)
+                           (struct-name 'name 'king 'or 'col 'fur 'spec)
                            )
                          )))
      ]))
