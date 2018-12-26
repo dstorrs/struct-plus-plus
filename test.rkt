@@ -24,8 +24,7 @@
     #:datum-literals (struct++)
     [(struct++ struct-name (item:field ...) opt ...)
      (template (begin  (struct struct-name (item.id ...) opt ...)
-                       
-                       ))
+                        ))
      ]))
 
 (struct++ thing (name
