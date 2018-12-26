@@ -1,7 +1,8 @@
 #!/usr/bin/env racket
 #lang racket
 
-(require (for-syntax syntax/parse/experimental/template
+(require handy/utils
+         (for-syntax syntax/parse/experimental/template
                      syntax/parse
                      racket/syntax
                      (only-in racket/list partition flatten append-map)
@@ -14,22 +15,57 @@
 (provide struct++)
 
 (define-syntax (struct++ stx)
+  (define (symbol-string? sym-str)
+    (cond [(symbol? sym-str) (symbol->string sym-str)]
+          [(string? sym-str) sym-str]
+          [else (raise-argument-error 'symbol-string? "symbol or string" sym-str)]))
+  
+  (define (symbol-string->symbol sym-str)
+    (cond [(symbol? sym-str) sym-str]
+          [(string? sym-str (string->symbol sym-str))]
+          [else (raise-argument-error 'symbol-string->symbol "symbol or string"  sym-str)]))
+  
   (define syntax->keyword (compose string->keyword symbol->string syntax->datum))
+  
+  (define-template-metafunction (make-ctor-contract stx)
+    (define-syntax-class contract-spec
+      (pattern (required?  (kw:keyword contr:expr))))
+    ;;
+    (syntax-parse stx
+      #:datum-literals (make-ctor-contract)
+      [(make-ctor-contract (item:contract-spec ...+ predicate))
+       (let-values
+           ([(mandatory optional)
+             (partition (syntax-parser [(flag _) (syntax-e #'flag)])
+                        (syntax->list #'(item ...)))])
+         (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
+                       (((_ (opt-kw  opt-contract)) ...)  optional))
+           (template (->* ((?@ mand-kw mand-contract) ...)
+                          ((?@ opt-kw opt-contract) ...)
+                          predicate))))]))
+
   (define-syntax-class field
-    (pattern (~or id:id 
+    (pattern (~or id:id
                   [id:id contract:expr (~optional wrapper:expr)]
                   [(id:id (~optional default:expr))]
-                  [(id:id default:expr) contract:expr (~optional wrapper:expr)]))
+                  [(id:id default:expr) contract:expr (~optional wrapper:expr)])
+             #:with kw (syntax->keyword #'id)
+             )
     )
   (syntax-parse stx
     #:datum-literals (struct++)
     [(struct++ struct-name (item:field ...) opt ...)
-     (with-syntax ([ctor-name (format-id #'struct-name "~a++" #'struct-name)]
-                   [pred  (format-id #'struct-name "~a?" #'struct-name)]
-                   )
-       (template (begin  (struct struct-name (item.id ...) opt ...)
+     (with-syntax* (
+                    [ctor-name (format-id #'struct-name "~a++" #'struct-name)]
+                    [predicate  (format-id #'struct-name "~a?" #'struct-name)]
+                    )
+       (quasitemplate (begin  (struct struct-name (item.id ...) opt ...)
                          (define/contract (ctor-name)
-                           (-> pred)
+                           (make-ctor-contract
+                            (((?? item.default #'#f)
+                              (item.kw (?? item.contract any/c))) ...
+                             predicate))
+
                            (struct-name 'name 'king 'or 'col 'fur 'spec)
                            )
                          )))
@@ -45,6 +81,8 @@
           #:transparent)
 (thing 'name 'king 'order 'color 7 'species)
 (thing++)
+
+
 ;; ;;    syntax->keyword was lifted from:
 ;; ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
 ;; (begin-for-syntax
