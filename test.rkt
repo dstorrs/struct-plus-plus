@@ -23,13 +23,13 @@
   (syntax-parse stx
     #:datum-literals (struct++)
     [(struct++ struct-name (item:field ...) opt ...)
-     (with-syntax ([ctor-name (format-id #'struct-name "~a++" #'struct-name)]))
-     (template (begin  (struct struct-name (item.id ...) opt ...)
-                       (define/contract (ctor-name)
-                         (-> any/c)
-                         'kw-ctor
-                         )
-                        ))
+     (with-syntax ([ctor-name (format-id #'struct-name "~a" #'struct-name)])
+       (template (begin  (struct struct-name (item.id ...) opt ...)
+                         (define/contract (ctor-name)
+                           (-> any/c)
+                           'kw-ctor
+                           )
+                         )))
      ]))
 
 (struct++ thing (name
