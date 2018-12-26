@@ -14,12 +14,12 @@
 (provide struct++)
 
 (define-syntax (struct++ stx)
+  (define syntax->keyword (compose string->keyword symbol->string syntax->datum))
   (define-syntax-class field
     (pattern (~or id:id 
                   [id:id contract:expr (~optional wrapper:expr)]
                   [(id:id (~optional default:expr))]
                   [(id:id default:expr) contract:expr (~optional wrapper:expr)]))
-    ;#:with ctor-arg #`(#,(syntax->keyword #'id) (?? default))
     )
   (syntax-parse stx
     #:datum-literals (struct++)
