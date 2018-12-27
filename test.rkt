@@ -71,18 +71,24 @@
                  [(species "unknown") string?]
                  [(pack-size 0) number? add1]
                  )
+          #:mutable
           #:transparent)
 (thing 'by-position "king" 'order 'color 7 'species 'pack-size)
-(thing++ #:name 'by-name
-         #:kingdom 'king
-         #:order 'order
-         #:color 'red
-         )
-(thing++ #:name 'by-name
-         #:kingdom 'king
-         #:order 'order
-         #:color 'red
-         )
+(define a (thing++ #:name 'by-name
+                   #:kingdom 'king
+                   #:order 'order
+                   #:color 'red
+                   ))
+a
+(set-thing-kingdom! a "invalid value from mutation")
+a
+;;(set-thing-name a 'by-name-set)
+
+;; (update-thing-name a (lambda (the-struct)
+;;                        (display "Current value of name: ") (println (thing-name a))
+;;                        'by-name-set))
+
+
 
 
 
