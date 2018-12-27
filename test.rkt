@@ -19,14 +19,14 @@
     (cond [(symbol? sym-str) (symbol->string sym-str)]
           [(string? sym-str) sym-str]
           [else (raise-argument-error 'symbol-string? "symbol or string" sym-str)]))
-  
+
   (define (symbol-string->symbol sym-str)
     (cond [(symbol? sym-str) sym-str]
           [(string? sym-str (string->symbol sym-str))]
           [else (raise-argument-error 'symbol-string->symbol "symbol or string"  sym-str)]))
-  
+
   (define syntax->keyword (compose string->keyword symbol->string syntax->datum))
-  
+
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
       (pattern (required?  (kw:keyword contr:expr))))
@@ -50,6 +50,7 @@
                   [(id:id (~optional default:expr))]
                   [(id:id default:expr) contract:expr (~optional wrapper:expr)])
              #:with kw (syntax->keyword #'id)
+             #:with ctor-arg (quasitemplate  (#,(syntax->keyword #'id) id))
              )
     )
   (syntax-parse stx
@@ -58,17 +59,17 @@
      (with-syntax* (
                     [ctor-name (format-id #'struct-name "~a++" #'struct-name)]
                     [predicate  (format-id #'struct-name "~a?" #'struct-name)]
+                    [((ctor-arg ...) ...) #'(item.ctor-arg ...)]
                     )
        (quasitemplate (begin  (struct struct-name (item.id ...) opt ...)
-                         (define/contract (ctor-name)
-                           (make-ctor-contract
-                            (((?? item.default #'#f)
-                              (item.kw (?? item.contract any/c))) ...
-                             predicate))
+                              (define/contract (ctor-name ctor-arg ... ...)
+                                (make-ctor-contract
+                                 (((?? item.default #'#f) (item.kw (?? item.contract any/c))) ...
+                                  predicate))
 
-                           (struct-name 'name 'king 'or 'col 'fur 'spec)
-                           )
-                         )))
+                                (struct-name item.id ...)
+                                )
+                              )))
      ]))
 
 (struct++ thing (name
@@ -80,87 +81,95 @@
                  )
           #:transparent)
 (thing 'name 'king 'order 'color 7 'species)
-(thing++)
+(thing++ #:name 'bob
+         #:kingdom 'king
+         #:order 'order 
+         #:color 'red
+         #:furry? #t
+         #:species 'horse
+         )
 
 
-;; ;;    syntax->keyword was lifted from:
-;; ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
-;; (begin-for-syntax
-;;   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
-
-;; (define-syntax (struct++ stx)
-;;   (define-template-metafunction (make-ctor-contract stx)
-;;     (define-syntax-class contract-spec
-;;       (pattern (required?:boolean  (kw:keyword contr:expr))))
-;;     ;;
-;;     (syntax-parse stx
-;;       #:datum-literals (make-ctor-contract)
-;;       [(make-ctor-contract (item:contract-spec ...+ predicate))
-;;        (let-values
-;;            ([(mandatory optional)
-;;              (partition (syntax-parser [(flag _) (syntax-e #'flag)])
-;;                         (syntax->list #'(item ...)))])
-;;          (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
-;;                        (((_ (opt-kw  opt-contract)) ...)  optional))
-;;            (template (->* ((?@ mand-kw mand-contract) ...)
-;;                           ((?@ opt-kw opt-contract) ...)
-;;                           predicate))))]))
 
 
-;;   ;;
-;;   (define-syntax-class field
-;;     (pattern id:id
-;;              #:with kw (syntax->keyword #'id) ; Ugly to repeat in each case, but clearer
-;;              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-;;              #:with field-contract #'any/c
-;;              #:with required? #'#t
-;;              #:with wrapper-func #'identity)
-;;     (pattern [id:id field-contract:expr]
-;;              #:with kw (syntax->keyword #'id)
-;;              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-;;              #:with required? #'#t
-;;              #:with wrapper-func #'identity)
-;;     (pattern [id:id field-contract:expr wrapper-func:expr]
-;;              #:with kw (syntax->keyword #'id)
-;;              #:with required? #'#t
-;;              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
-;;     (pattern [(id:id default-value:expr)]
-;;              #:with kw (syntax->keyword #'id)
-;;              #:with required? #'#f
-;;              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
-;;              #:with field-contract #'any/c
-;;              #:with wrapper-func #'identity)
-;;     (pattern [(id:id default-value:expr) field-contract:expr]
-;;              #:with kw (syntax->keyword #'id)
-;;              #:with required? #'#f
-;;              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
-;;              #:with wrapper-func #'identity)
-;;     (pattern [(id:id default-value:expr) field-contract:expr wrapper-func:expr]
-;;              #:with kw (syntax->keyword #'id)
-;;              #:with required? #'#f
-;;              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
-;;   ;;
-;;   (syntax-parse stx
-;;     [(struct++ struct-id:id
-;;                (~or (field-name:id ...)
+          ;; ;;    syntax->keyword was lifted from:
+          ;; ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
+          ;; (begin-for-syntax
+          ;;   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
 
-;;                     )
-;;                opt ...)
-;;      ; A double ... (used below) flattens one level
-;;      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
-;;                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
-;;                     [predicate (format-id #'struct-id "~a?" #'struct-id)]
-;;                     )
-;;        (template
-;;         (begin
-;;           ;
-;;           (struct struct-id (field.id ...) opt ...)
-;;           ;
-;;           (define/contract (ctor-id ctor-arg ... ...)
-;;             (make-ctor-contract
-;;              ((field.required? (field.kw field.field-contract)) ... predicate))
-;;             (struct-id (field.wrapper-func field.id) ...))
-;;           ;
-;;           (make-functional-setter struct-id field.id field.field-contract field.wrapper-func) ...
-;;           (make-functional-updater struct-id field.id field.field-contract field.wrapper-func) ...
-;;           )))]))
+          ;; (define-syntax (struct++ stx)
+          ;;   (define-template-metafunction (make-ctor-contract stx)
+          ;;     (define-syntax-class contract-spec
+          ;;       (pattern (required?:boolean  (kw:keyword contr:expr))))
+          ;;     ;;
+          ;;     (syntax-parse stx
+          ;;       #:datum-literals (make-ctor-contract)
+          ;;       [(make-ctor-contract (item:contract-spec ...+ predicate))
+          ;;        (let-values
+          ;;            ([(mandatory optional)
+          ;;              (partition (syntax-parser [(flag _) (syntax-e #'flag)])
+          ;;                         (syntax->list #'(item ...)))])
+          ;;          (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
+          ;;                        (((_ (opt-kw  opt-contract)) ...)  optional))
+          ;;            (template (->* ((?@ mand-kw mand-contract) ...)
+          ;;                           ((?@ opt-kw opt-contract) ...)
+          ;;                           predicate))))]))
+
+
+          ;;   ;;
+          ;;   (define-syntax-class field
+          ;;     (pattern id:id
+          ;;              #:with kw (syntax->keyword #'id) ; Ugly to repeat in each case, but clearer
+          ;;              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
+          ;;              #:with field-contract #'any/c
+          ;;              #:with required? #'#t
+          ;;              #:with wrapper-func #'identity)
+          ;;     (pattern [id:id field-contract:expr]
+          ;;              #:with kw (syntax->keyword #'id)
+          ;;              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
+          ;;              #:with required? #'#t
+          ;;              #:with wrapper-func #'identity)
+          ;;     (pattern [id:id field-contract:expr wrapper-func:expr]
+          ;;              #:with kw (syntax->keyword #'id)
+          ;;              #:with required? #'#t
+          ;;              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
+          ;;     (pattern [(id:id default-value:expr)]
+          ;;              #:with kw (syntax->keyword #'id)
+          ;;              #:with required? #'#f
+          ;;              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
+          ;;              #:with field-contract #'any/c
+          ;;              #:with wrapper-func #'identity)
+          ;;     (pattern [(id:id default-value:expr) field-contract:expr]
+          ;;              #:with kw (syntax->keyword #'id)
+          ;;              #:with required? #'#f
+          ;;              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
+          ;;              #:with wrapper-func #'identity)
+          ;;     (pattern [(id:id default-value:expr) field-contract:expr wrapper-func:expr]
+          ;;              #:with kw (syntax->keyword #'id)
+          ;;              #:with required? #'#f
+          ;;              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
+          ;;   ;;
+          ;;   (syntax-parse stx
+          ;;     [(struct++ struct-id:id
+          ;;                (~or (field-name:id ...)
+
+          ;;                     )
+          ;;                opt ...)
+          ;;      ; A double ... (used below) flattens one level
+          ;;      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
+          ;;                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
+          ;;                     [predicate (format-id #'struct-id "~a?" #'struct-id)]
+          ;;                     )
+          ;;        (template
+          ;;         (begin
+          ;;           ;
+          ;;           (struct struct-id (field.id ...) opt ...)
+          ;;           ;
+          ;;           (define/contract (ctor-id ctor-arg ... ...)
+          ;;             (make-ctor-contract
+          ;;              ((field.required? (field.kw field.field-contract)) ... predicate))
+          ;;             (struct-id (field.wrapper-func field.id) ...))
+          ;;           ;
+          ;;           (make-functional-setter struct-id field.id field.field-contract field.wrapper-func) ...
+          ;;           (make-functional-updater struct-id field.id field.field-contract field.wrapper-func) ...
+          ;;           )))]))
