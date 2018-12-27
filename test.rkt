@@ -40,8 +40,8 @@
                   [(id:id default:expr) contract:expr (~optional wrapper:expr)])
              #:with kw (syntax->keyword #'id)
              #:with ctor-arg (if (syntax->datum (template (?? default #f)))
-                                 (quasitemplate  (#,(syntax->keyword #'id) [id default]))
-                                 (quasitemplate  (#,(syntax->keyword #'id) id)))
+                                 (quasitemplate  (kw [id default]))
+                                 (quasitemplate  (kw id)))
              )
     )
   (syntax-parse stx
