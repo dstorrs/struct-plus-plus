@@ -41,18 +41,16 @@
              #:with kw (syntax->keyword #'id)
              #:with ctor-arg (if (syntax->datum (template (?? default #f)))
                                  (quasitemplate  (kw [id default]))
-                                 (quasitemplate  (kw id)))
-             )
-    )
+                                 (quasitemplate  (kw id)))))
+  
   (syntax-parse stx
     #:datum-literals (struct++)
     [(struct++ struct-name (item:field ...) opt ...)
      (with-syntax* (
-                    [ctor-name (format-id #'struct-name "~a++" #'struct-name)]
-                    [predicate  (format-id #'struct-name "~a?" #'struct-name)]
+                    [ctor-name            (format-id #'struct-name "~a++" #'struct-name)]
+                    [predicate            (format-id #'struct-name "~a?"  #'struct-name)]
                     [((ctor-arg ...) ...) #'(item.ctor-arg ...)]
                     )
-
        (quasitemplate (begin
                         (struct struct-name (item.id ...) opt ...)
                         (define/contract (ctor-name ctor-arg ... ...)
@@ -60,23 +58,21 @@
                            (((?? item.default #f) (item.kw (?? item.contract any/c))) ...
                             predicate))
 
-                          (struct-name item.id ...)
-                          )
-                        )))
-     ]))
+                          (struct-name ((?? item.wrapper identity) item.id) ...)
+                          ))))]))
 
 (struct++ thing (name
                  [kingdom symbol?]
-                 [order symbol? symbol-string->symbol]
+                 [order any/c symbol-string->string]
                  [(color 'brown)]
                  [(furry? #t) boolean?]
                  [(species "unknown") string?]
                  )
           #:transparent)
-(thing 'name 'king 'order 'color 7 'species)
-(thing++ #:name 'bob
+(thing 'by-position 'king 'order 'color 7 'species)
+(thing++ #:name 'by-name
          #:kingdom 'king
-         #:order 'order
+         #:order "order"
          #:color 'red
          )
 
