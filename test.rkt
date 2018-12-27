@@ -55,7 +55,9 @@
                         (struct struct-name (item.id ...) opt ...)
                         (define/contract (ctor-name ctor-arg ... ...)
                           (make-ctor-contract
-                           (((?? item.default #f) (item.kw (?? item.contract any/c))) ...
+                           (((?? item.default #f) (item.kw (compose (?? item.contract any/c)
+                                                                    (?? item.wrapper identity)
+                                                                    ))) ...
                             predicate))
 
                           (struct-name ((?? item.wrapper identity) item.id) ...)
@@ -63,16 +65,22 @@
 
 (struct++ thing (name
                  [kingdom symbol?]
-                 [order any/c symbol-string->string]
+                 [order string? symbol-string->string]
                  [(color 'brown)]
                  [(furry? #t) boolean?]
                  [(species "unknown") string?]
+                 [(pack-size 0) number? add1]
                  )
           #:transparent)
-(thing 'by-position 'king 'order 'color 7 'species)
+(thing 'by-position "king" 'order 'color 7 'species 'pack-size)
 (thing++ #:name 'by-name
          #:kingdom 'king
-         #:order "order"
+         #:order 'order
+         #:color 'red
+         )
+(thing++ #:name 'by-name
+         #:kingdom 'king
+         #:order 'order
          #:color 'red
          )
 
