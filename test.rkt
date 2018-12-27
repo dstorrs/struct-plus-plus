@@ -7,7 +7,6 @@
                      racket/syntax
                      (only-in racket/list partition flatten append-map)
                      syntax/parse/class/struct-id  ; package: syntax-classes-lib
-                     handy/utils
                      )
          "make_functional_setter.rkt"
          )
@@ -15,16 +14,6 @@
 (provide struct++)
 
 (define-syntax (struct++ stx)
-  (define (symbol-string? sym-str)
-    (cond [(symbol? sym-str) (symbol->string sym-str)]
-          [(string? sym-str) sym-str]
-          [else (raise-argument-error 'symbol-string? "symbol or string" sym-str)]))
-
-  (define (symbol-string->symbol sym-str)
-    (cond [(symbol? sym-str) sym-str]
-          [(string? sym-str (string->symbol sym-str))]
-          [else (raise-argument-error 'symbol-string->symbol "symbol or string"  sym-str)]))
-
   (define syntax->keyword (compose string->keyword symbol->string syntax->datum))
 
   (define-template-metafunction (make-ctor-contract stx)
@@ -89,7 +78,6 @@
          #:kingdom 'king
          #:order 'order
          #:color 'red
-         #:furry? #t
          )
 
 
