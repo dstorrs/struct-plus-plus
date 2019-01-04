@@ -75,14 +75,13 @@
       [(make-ctor-contract (item:contract-spec ...+ predicate))
        (let-values
            ([(mandatory optional)
-             (partition car
-                        (syntax->datum #'(item ...)))])
-
-         (define flat-mand (if (null? mandatory) '() (foldl append '() (map cadr mandatory))))
-         (define flat-opt  (if (null? optional)  '() (foldl append '() (map cadr optional ))))
-         
-         (cond [(null? flat-opt) #`(-> #,@flat-mand  predicate)]
-               [else #`(->* (#,@flat-mand) (#,@flat-opt) predicate)]))]))
+             (partition (syntax-parser [(flag _) (syntax-e #'flag)])
+                        (syntax->list #'(item ...)))])
+         (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
+                       (((_ (opt-kw  opt-contract)) ...)  optional))
+           (template (->* ((?@ mand-kw mand-contract) ...)
+                          ((?@ opt-kw opt-contract) ...)
+                          predicate))))]))
   ;;
   (define-syntax-class field
     (pattern id:id
