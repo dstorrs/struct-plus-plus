@@ -40,8 +40,8 @@
 ;;   ; Create an instance, set an element, update an element.  Both
 ;;   ; set and update are functional changes, not mutators.
 ;;   (define p (pie++ #:filling 'berry))   ; the #:cook-temp keyword will default
-;;   (set-pie-filling p 'cherry)                  
-;;   (update-pie-filling p (lambda (x) 'unknown)) 
+;;   (set-pie-filling p 'cherry)
+;;   (update-pie-filling p (lambda (x) 'unknown))
 ;;   (set-pie-cook-temp p 'invalid) ; EXCEPTION!  Field requires an exact-positive-integer?
 ;;
 
@@ -53,7 +53,7 @@
 (define-syntax (struct++ stx)
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
-      (pattern (required?:boolean  (kw:keyword contr:expr))))
+      (pattern (required?:boolean  (name:id contr:expr))))
     ;;
     (syntax-parse stx
       #:datum-literals (make-ctor-contract)
@@ -61,7 +61,10 @@
        (let-values
            ([(mandatory optional)
              (partition (syntax-parser [(flag _) (syntax-e #'flag)])
-                        (syntax->list #'(item ...)))])
+                        (map (syntax-parser [(flag (name contr))
+                                             (quasitemplate (flag (#,(syntax->keyword #'name)
+                                                                   contr)))])
+                             (syntax->list #'(item ...))))])
          (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
                        (((_ (opt-kw  opt-contract)) ...)  optional))
            (template (->* ((?@ mand-kw mand-contract) ...)
@@ -69,34 +72,12 @@
                           predicate))))]))
   ;;
   (define-syntax-class field
-    (pattern id:id
-             #:with kw (syntax->keyword #'id) ; Ugly to repeat in each case, but clearer
-             #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-             #:with field-contract #'any/c
-             #:with required? #'#t
-             #:with wrapper #'identity)
-    (pattern [id:id field-contract:expr]
-             #:with kw (syntax->keyword #'id)
-             #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-             #:with required? #'#t
-             #:with wrapper #'identity)
-    (pattern [id:id field-contract:expr wrapper:expr]
-             #:with kw (syntax->keyword #'id)
+    (pattern (~or id:id
+                  [id:id (~optional (~seq field-contract:expr (~optional wrapper:expr)))])
              #:with required? #'#t
              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
-    (pattern [(id:id default-value:expr)]
-             #:with kw (syntax->keyword #'id)
-             #:with required? #'#f
-             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
-             #:with field-contract #'any/c
-             #:with wrapper #'identity)
-    (pattern [(id:id default-value:expr) field-contract:expr]
-             #:with kw (syntax->keyword #'id)
-             #:with required? #'#f
-             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
-             #:with wrapper #'identity)
-    (pattern [(id:id default-value:expr) field-contract:expr wrapper:expr]
-             #:with kw (syntax->keyword #'id)
+    (pattern [(id:id default-value:expr)
+              (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
@@ -114,15 +95,15 @@
           ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
-             ((field.required? (field.kw field.field-contract)) ... predicate))
-            (struct-id (field.wrapper field.id) ...))
+             ((field.required? (field.id (?? field.field-contract any/c))) ... predicate))
+            (struct-id ((?? field.wrapper identity) field.id) ...))
           ;
-          (make-functional-setter struct-id field.id field.field-contract field.wrapper) ...
-          (make-functional-updater struct-id field.id field.field-contract field.wrapper) ...
-          ))))))
-
-(struct++ object (name) #:mutable)
-(struct++ thing (color))
-
-(object++ #:name 'ball)
-(thing++ #:color 'blue)
+          (begin
+            (make-functional-setter  struct-id field.id
+                                     (?? field.field-contract any/c)
+                                     (?? field.wrapper identity))
+            ...)
+          (begin (make-functional-updater struct-id field.id
+                                          (?? field.field-contract any/c)
+                                          (?? field.wrapper identity))
+                 ...)))))))
