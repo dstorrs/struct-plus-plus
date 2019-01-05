@@ -3,22 +3,18 @@
 (require (for-syntax syntax/parse/experimental/template
                      syntax/parse
                      racket/syntax
-                     (only-in racket/list partition flatten)
-                     syntax/parse/class/struct-id  ; package: syntax/classes-lib
+                     (only-in racket/list partition flatten append-map)
+                     syntax/parse/class/struct-id  ; package: syntax-classes-lib
                      )
-         syntax/parse/experimental/template
-         racket/syntax
-         syntax/parse)
+         "make_functional_setter.rkt"
+         )
 
 (provide struct++)
 
-;; This is an extended version of Racket's <struct>.
+;; See scribblings/struct-plus-plus.scrbl for full details.  Cheat sheet:
 ;;
-;; (struct++ type:id maybe-super-type:id (field ...) struct-option ...)
+;; (struct++ type:id (field ...) struct-option ...)
 ;;
-;;    maybe-super = 
-;;                | super-id    
-;;      
 ;;          field =  field-id
 ;;                | [field-id                   field-contract               ]
 ;;                | [field-id                   field-contract   wrapper-func]
@@ -28,38 +24,21 @@
 ;;
 ;; field-contract = contract?
 ;;
-;;  struct-option = as per the 'struct' builtin 
+;; struct-option = as per the 'struct' builtin  (e.g. #:transparent, #:guard, etc)
 ;;
-;;         IMPORTANT:
-;;       Field options (#:mutable and #:auto) are not supported.
-;;       Note the extra set of parens when setting a default!
 ;;
-;; @@TODO:  
-;;    - field options
-;;    - functional setters
-;;    - supertype fields appear in the kw signature
-;;    - reflection
+;; Example of declaration with all the bells and whistles:
 ;;
-;;   (struct food (name flavor-type))
-;;  
-;;      ;; Various possibilities.  Obviously you can't use them all in one file.
-;;   (struct++ pie (filling cook-temp))           
-;;   (struct++ pie (filling [(cook-temp 450)]))
-;;   (struct++ pie (filling [cook-temp       exact-positive-integer?      ])) 
-;;   (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
-;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
+;;   ; Declare a struct
 ;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
-;;   (struct++ pie food (filling flavor-type))
-;;   (struct++ pie
-;;             food
-;;             ([filling (or/c 'berry "berry" 'chocolate "chocolate" 'cheese "cheese")
-;;                       symbol-string->string]
-;;              [(cook-temp 450) exact-positive-integer?)])
-;;             #:transparent
-;;             #:guard
-;;               (lambda (name flavor-type filling cook-temp type)    ; this is here just to
-;;                 (values name flavor-type filling cook-temp type))) ; prove you can do it
-
+;;
+;;   ; Create an instance, set an element, update an element.  Both
+;;   ; set and update are functional changes, not mutators.
+;;   (define p (pie++ #:filling 'berry))   ; the #:cook-temp keyword will default
+;;   (set-pie-filling p 'cherry)                  
+;;   (update-pie-filling p (lambda (x) 'unknown)) 
+;;   (set-pie-cook-temp p 'invalid) ; EXCEPTION!  Field requires an exact-positive-integer?
+;;
 
 ;;    syntax->keyword was lifted from:
 ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
@@ -70,6 +49,7 @@
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
       (pattern (required?:boolean  (kw:keyword contr:expr))))
+    ;;
     (syntax-parse stx
       #:datum-literals (make-ctor-contract)
       [(make-ctor-contract (item:contract-spec ...+ predicate))
@@ -116,7 +96,7 @@
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
   (syntax-parse stx
-    ((struct++ struct-id:id (~optional super-type:id) (field:field ...) opt ...)
+    ((struct++ struct-id:id (field:field ...) opt ...)
      ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
@@ -124,10 +104,14 @@
                     )
        (template
         (begin
+          ;
           (struct struct-id (field.id ...) opt ...)
-
+          ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
              ((field.required? (field.kw field.field-contract)) ... predicate))
-            (struct-id (field.wrapper-func field.id) ...))))))))
-
+            (struct-id (field.wrapper-func field.id) ...))
+          ;
+          (make-functional-setter struct-id field.id field.field-contract field.wrapper-func) ...
+          (make-functional-updater struct-id field.id field.field-contract field.wrapper-func) ...
+          ))))))
