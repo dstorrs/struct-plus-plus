@@ -79,9 +79,8 @@
              #:with kw (syntax->keyword #'id)
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with required? #'#t)
-    (pattern [(~seq (id:id default-value:expr)
-                    (~optional (~seq field-contract:expr
-                                     (~optional wrapper:expr))))]
+    (pattern [(id:id default-value:expr)
+              (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
              #:with kw (syntax->keyword #'id)
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
