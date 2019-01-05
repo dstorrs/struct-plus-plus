@@ -1,13 +1,18 @@
-#lang racket
+#lang racket/base
 
-(require (for-syntax syntax/parse/experimental/template
-                     syntax/parse
+(require (for-syntax racket/base
+                     (only-in racket/list
+                              partition
+                              flatten
+                              append-map)
                      racket/syntax
-                     (only-in racket/list partition flatten append-map)
-                     syntax/parse/class/struct-id  ; package: syntax-classes-lib
-                     )
-         "make_functional_setter.rkt"
-         )
+                     syntax/parse
+                     syntax/parse/class/struct-id
+                     syntax/parse/experimental/template)
+         racket/contract/base
+         racket/contract/region
+         racket/function
+         "make_functional_setter.rkt")
 
 (provide struct++)
 
@@ -17,10 +22,10 @@
 ;;
 ;;          field =  field-id
 ;;                | [field-id                   field-contract               ]
-;;                | [field-id                   field-contract   wrapper-func]
+;;                | [field-id                   field-contract   wrapper]
 ;;                | [(field-id  default-value)                               ]
 ;;                | [(field-id  default-value)  field-contract               ]
-;;                | [(field-id  default-value)  field-contract   wrapper-func]
+;;                | [(field-id  default-value)  field-contract   wrapper]
 ;;
 ;; field-contract = contract?
 ;;
@@ -69,13 +74,13 @@
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with field-contract #'any/c
              #:with required? #'#t
-             #:with wrapper-func #'identity)
+             #:with wrapper #'identity)
     (pattern [id:id field-contract:expr]
              #:with kw (syntax->keyword #'id)
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with required? #'#t
-             #:with wrapper-func #'identity)
-    (pattern [id:id field-contract:expr wrapper-func:expr]
+             #:with wrapper #'identity)
+    (pattern [id:id field-contract:expr wrapper:expr]
              #:with kw (syntax->keyword #'id)
              #:with required? #'#t
              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
@@ -84,13 +89,13 @@
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
              #:with field-contract #'any/c
-             #:with wrapper-func #'identity)
+             #:with wrapper #'identity)
     (pattern [(id:id default-value:expr) field-contract:expr]
              #:with kw (syntax->keyword #'id)
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
-             #:with wrapper-func #'identity)
-    (pattern [(id:id default-value:expr) field-contract:expr wrapper-func:expr]
+             #:with wrapper #'identity)
+    (pattern [(id:id default-value:expr) field-contract:expr wrapper:expr]
              #:with kw (syntax->keyword #'id)
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
@@ -110,8 +115,14 @@
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
              ((field.required? (field.kw field.field-contract)) ... predicate))
-            (struct-id (field.wrapper-func field.id) ...))
+            (struct-id (field.wrapper field.id) ...))
           ;
-          (make-functional-setter struct-id field.id field.field-contract field.wrapper-func) ...
-          (make-functional-updater struct-id field.id field.field-contract field.wrapper-func) ...
+          (make-functional-setter struct-id field.id field.field-contract field.wrapper) ...
+          (make-functional-updater struct-id field.id field.field-contract field.wrapper) ...
           ))))))
+
+(struct++ object (name) #:mutable)
+(struct++ thing (color))
+
+(object++ #:name 'ball)
+(thing++ #:color 'blue)
