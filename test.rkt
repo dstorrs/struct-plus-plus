@@ -79,18 +79,9 @@
              #:with kw (syntax->keyword #'id)
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with required? #'#t)
-    (pattern [(~seq (id:id default-value:expr) (~optional (~seq field-contract:expr (~optional wrapper:expr))))]
-             #:with kw (syntax->keyword #'id)
-             #:with required? #'#f
-             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value]))
-    #;
-    (pattern [(id:id default-value:expr) field-contract:expr]
-             #:with kw (syntax->keyword #'id)
-             #:with required? #'#f
-             #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
-             #:with wrapper #'identity)
-    #;
-    (pattern [(id:id default-value:expr) field-contract:expr wrapper:expr]
+    (pattern [(~seq (id:id default-value:expr)
+                    (~optional (~seq field-contract:expr
+                                     (~optional wrapper:expr))))]
              #:with kw (syntax->keyword #'id)
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
