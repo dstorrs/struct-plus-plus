@@ -53,7 +53,7 @@
 (define-syntax (struct++ stx)
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
-      (pattern (required?:boolean  (kw:keyword contr:expr))))
+      (pattern (required?:boolean  (name:id contr:expr))))
     ;;
     (syntax-parse stx
       #:datum-literals (make-ctor-contract)
@@ -61,7 +61,10 @@
        (let-values
            ([(mandatory optional)
              (partition (syntax-parser [(flag _) (syntax-e #'flag)])
-                        (syntax->list #'(item ...)))])
+                        (map (syntax-parser [(flag (name contr))
+                                             (quasitemplate (flag (#,(syntax->keyword #'name)
+                                                                   contr)))])
+                             (syntax->list #'(item ...))))])
          (with-syntax ((((_ (mand-kw mand-contract)) ...) mandatory)
                        (((_ (opt-kw  opt-contract)) ...)  optional))
            (template (->* ((?@ mand-kw mand-contract) ...)
@@ -70,18 +73,15 @@
   ;;
   (define-syntax-class field
     (pattern id:id
-             #:with kw (syntax->keyword #'id) ; Ugly to repeat in each case, but clearer
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with field-contract #'any/c
              #:with required? #'#t
              #:with wrapper #'identity)
     (pattern [id:id (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
-             #:with kw (syntax->keyword #'id)
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with required? #'#t)
     (pattern [(id:id default-value:expr)
               (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
-             #:with kw (syntax->keyword #'id)
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
@@ -99,7 +99,7 @@
           ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
-             ((field.required? (field.kw (?? field.field-contract any/c))) ... predicate))
+             ((field.required? (field.id (?? field.field-contract any/c))) ... predicate))
             (struct-id ((?? field.wrapper identity) field.id) ...))
           ;
           (begin
