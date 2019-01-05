@@ -72,14 +72,10 @@
                           predicate))))]))
   ;;
   (define-syntax-class field
-    (pattern id:id
-             #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-             #:with field-contract #'any/c
+    (pattern (~or id:id
+                  [id:id (~optional (~seq field-contract:expr (~optional wrapper:expr)))])
              #:with required? #'#t
-             #:with wrapper #'identity)
-    (pattern [id:id (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
-             #:with ctor-arg #`(#,(syntax->keyword #'id) id)
-             #:with required? #'#t)
+             #:with ctor-arg #`(#,(syntax->keyword #'id) id))
     (pattern [(id:id default-value:expr)
               (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
              #:with required? #'#f
@@ -115,7 +111,7 @@
 (require          racket/string
 )
 (struct++ object (name) #:mutable)
-(struct++ thing (color) #:transparent)
+(struct++ thing ([color thing/c]) #:transparent)
 (struct++ building (type
                     [street-num]
                     [size integer?]
@@ -123,7 +119,7 @@
                     [(color 'white)]
                     [(floors 2) integer?]
                     [(windows 8) integer? add1]
-                    ) )
+                    ))
 (object++   #:name 'ball)
-(thing++    #:color 'blue)
+(thing++    #:color "blue")
 (building++ #:type 'private #:street-num 27 #:size 8 #:street "elm")
