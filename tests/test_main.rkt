@@ -87,3 +87,20 @@
            exn:fail:contract?
            "set-book-title respects datatype")
    ))
+
+(when #t
+  (test-suite
+   "struct->hash"
+
+   (struct++ person (name [(age 18) integer?]) #:transparent)
+   (define bob (person++ #:name 'bob #:age 20))
+   (is bob
+       (person 'bob 20)
+       "created bob"
+       )
+   (is (struct->hash person bob)
+       (hash 'name 'bob
+             'age 20)
+       "converted to hash"
+       )
+   ))

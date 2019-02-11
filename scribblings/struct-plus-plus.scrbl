@@ -22,7 +22,7 @@ It currently supports the #:mutable struct option, but that may be removed in a 
 
    field =  field-id
          | [field-id                   field-contract               ]
-         | [field-id                   field-contract   wrapper-func]
+         | [field-id                   field-contract   wrapper     ]
          | [(field-id  default-value)                               ]
          | [(field-id  default-value)  field-contract               ]
          | [(field-id  default-value)  field-contract   wrapper
@@ -33,6 +33,12 @@ It currently supports the #:mutable struct option, but that may be removed in a 
 }
 
 WARNING: The #:mutable struct option is currently supported but may be disallowed in a future version.
+
+
+
+@verbatim{struct->hash}
+
+Converts any struct (i.e., not just ones declared with struct++) into a hash of field-names -> field-value.
 
 
 @section{Examples}
@@ -104,6 +110,24 @@ Also, struct options are supported:
                  (values filling cook-temp))))
 ]
 
+
+@verbatim{struct->hash}
+
+Converts any struct (i.e., not just ones declared with struct++) into a hash of field-names -> field-value. This is especially useful for shuttling data between structs and the database (where you typically want hashes or lists).
+
+cf struct->list from the racket/struct package
+
+@verbatim{
+ > (struct++ person (name [(age 18) integer?]) #:transparent)
+ > (person++ #:name 'bob #:age 20)
+ (person 'bob 20)
+ > (struct->hash person (person 'bob 20))
+ '#hash((age . 20) (name . bob))
+ > (struct pet (species name ))
+ > (struct->hash pet (pet 'dog 'Rover))
+ '#hash((name . Rover) (species . dog))
+}
+  
 @section{TODO}
 
 @itemlist[

@@ -14,7 +14,7 @@
          racket/function
          "make_functional_setter.rkt")
 
-(provide struct++)
+(provide struct++ struct->hash)
 
 ;; See scribblings/struct-plus-plus.scrbl for full details.  Cheat sheet:
 ;;
@@ -107,3 +107,21 @@
                                           (?? field.field-contract any/c)
                                           (?? field.wrapper identity))
                  ...)))))))
+
+;;-----------------------------------------------------------------------
+
+(define-syntax struct->hash
+  (syntax-parser
+    [(_ s:struct-id instance:expr)
+     (template
+      (let* ([name-str (symbol->string  (object-name s.constructor-id))]
+             [field-name (lambda (f)
+                           (string->symbol
+                            (regexp-replace (pregexp (string-append  name-str "-"))
+                                            (symbol->string (object-name f))
+                                            "")))]
+             )
+        (make-immutable-hash (list  (cons  (field-name s.accessor-id)
+                                           (s.accessor-id instance)
+                                           ) ...))))
+     ]))
