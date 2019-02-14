@@ -70,6 +70,12 @@
            (template (->* ((?@ mand-kw mand-contract) ...)
                           ((?@ opt-kw opt-contract) ...)
                           predicate))))]))
+
+
+  ;; (map syntax->datum)
+  ;; (map (syntax-parser [(kw _ ...) (syntax->datum kw)])
+  ;;      (syntax->list #'(opt ...)))
+  ;; (let ([all-opts ]))
   ;;
   (define-syntax-class field
     (pattern (~or id:id
@@ -81,17 +87,52 @@
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
+  (define-syntax-class rule
+    (pattern  (rule-name:str (~seq (~and #:n-of      rule-kw) N:exact-positive-integer (field-name:id ..2) (~optional unwanted-val))) )
+    (pattern  (rule-name:str (~seq (~and #:one-of    rule-kw)   (field-name:id ..2) (~optional unwanted-val))))
+    (pattern  (rule-name:str (~seq (~and #:transform rule-kw)   (field-name:id ..+) transform-proc:expr (~optional (~and (~seq  #:unless predicate:expr) (~seq  unless-clause))))))
+    (pattern  (rule-name:str (~seq (~and #:relation  rule-kw)   (field-name:id ..+) predicate-proc:expr (~optional failure-message:expr))) )
+    ;; rule-name           : string?
+    ;; N                   : exact-positive-integer? where N < M
+    ;; unwanted-val        : any/c = #f
+    ;; transform-procedure : procedure, procedure-arity-includes? M, returning M values
+    ;; test-predicate      : procedure, procedure-arity-includes? M, returning boolean?
+    ;; M                   : number of parenthesized field-ids in rule
+    ;; failure-message     : string? = "'<rule-name>' failed"
+    )
+  
+  ;;
+  (define-splicing-syntax-class option
+    (pattern (~seq #:make-setters))
+    (pattern (~seq #:mutable))
+    (pattern (~seq #:super sup:expr))
+    (pattern (~seq #:inspector inspect:expr))
+    (pattern (~seq #:guard guard:expr))
+    (pattern (~seq #:property prop-expr:expr prop-val:expr))
+    (pattern (~seq #:transparent))
+    (pattern (~seq #:prefab))
+    (pattern (~seq #:authentic))
+    (pattern (~seq #:name name:id))
+    (pattern (~seq #:extra-name extra-name:id))
+    (pattern (~seq #:constructor-name constructor-name:id))
+    (pattern (~seq #:extra-constructor-name extra-constructor-name:id))
+    (pattern (~seq #:reflection-name reflection-name:id))
+    (pattern (~seq #:methods gen-name:id (definitions:expr ...)))
+    (pattern (~seq #:omit-define-syntaxes))
+    (pattern (~seq #:omit-define-values)))
+  
   (syntax-parse stx
-    ((struct++ struct-id:id (field:field ...) opt ...)
+    ((struct++ struct-id:id (field:field ...) opt:option ... )
      ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
                     [predicate (format-id #'struct-id "~a?" #'struct-id)]
+                    [((opts ...) ...) #'(opt ...)]
                     )
        (template
         (begin
           ;
-          (struct struct-id (field.id ...) opt ...)
+          (struct struct-id (field.id ...) opts ...  ...)
           ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
