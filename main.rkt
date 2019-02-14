@@ -72,11 +72,6 @@
                           predicate))))]))
 
 
-  ;; (map syntax->datum)
-  ;; (map (syntax-parser [(kw _ ...) (syntax->datum kw)])
-  ;;      (syntax->list #'(opt ...)))
-  ;; (let ([all-opts ]))
-  ;;
   (define-syntax-class field
     (pattern (~or id:id
                   [id:id (~optional (~seq field-contract:expr (~optional wrapper:expr)))])
