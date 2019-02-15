@@ -85,7 +85,6 @@
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
-  #;
   (define-splicing-syntax-class rule
     (pattern
      (~seq #:rule (rule-name:str (~seq (~and #:transform kw) target (var ...) [code ...])))
