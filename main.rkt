@@ -2,17 +2,19 @@
 
 (require (for-syntax racket/base
                      (only-in racket/list
-                              partition
+                              append-map
+                              count
                               flatten
-                              append-map)
+                              partition)
                      racket/syntax
                      syntax/parse
                      syntax/parse/class/struct-id
                      syntax/parse/experimental/template)
+         racket/bool
          racket/contract/base
          racket/contract/region
          racket/function
-         (only-in racket/list flatten)
+         (only-in racket/list count flatten)
          "make_functional_setter.rkt")
 
 (provide struct++ struct->hash)
