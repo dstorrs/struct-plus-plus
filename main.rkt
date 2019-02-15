@@ -85,6 +85,7 @@
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
+  #;
   (define-splicing-syntax-class rule
     (pattern
      (~seq #:rule (rule-name:str (~seq (~and #:transform kw) target (var ...) [code ...])))
@@ -122,7 +123,7 @@
   (syntax-parse stx
     ((struct++ struct-id:id
                (field:field ...)
-               (~optional (r:rule ...))
+               ;(~optional (r:rule ...))
                opt ... )
      ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
@@ -138,7 +139,7 @@
             (make-ctor-contract
              ((field.required? (field.id (?? field.field-contract any/c))) ... predicate))
 
-            (void  r.result ...)
+            ;(void  r.result ...)
 
             (struct-id ((?? field.wrapper identity) field.id) ...))
           ;

@@ -3,7 +3,7 @@
 (require handy/test-more
          "../main.rkt")
 
-(expect-n-tests 15)
+(expect-n-tests 18)
 
 (when #t
   (test-suite
