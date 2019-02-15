@@ -82,20 +82,45 @@
              #:with required? #'#f
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
-  (define-syntax-class rule
-    (pattern  (rule-name:str (~seq (~and #:n-of      rule-kw) N:exact-positive-integer (field-name:id ..2) (~optional unwanted-val))) )
-    (pattern  (rule-name:str (~seq (~and #:one-of    rule-kw)   (field-name:id ..2) (~optional unwanted-val))))
-    (pattern  (rule-name:str (~seq (~and #:transform rule-kw)   (field-name:id ..+) transform-proc:expr (~optional (~and (~seq  #:unless predicate:expr) (~seq  unless-clause))))))
-    (pattern  (rule-name:str (~seq (~and #:relation  rule-kw)   (field-name:id ..+) predicate-proc:expr (~optional failure-message:expr))) )
-    ;; rule-name           : string?
-    ;; N                   : exact-positive-integer? where N < M
-    ;; unwanted-val        : any/c = #f
-    ;; transform-procedure : procedure, procedure-arity-includes? M, returning M values
-    ;; test-predicate      : procedure, procedure-arity-includes? M, returning boolean?
-    ;; M                   : number of parenthesized field-ids in rule
-    ;; failure-message     : string? = "'<rule-name>' failed"
-    )
-  
+  (define-splicing-syntax-class rule
+    (pattern (~seq #:rule
+                   (rule-name:str (~seq (~and #:transform kw)
+                                        target (var ...) [code ...])))
+             #:with result (template (set! target ((lambda (var ...)
+                                                     code ...)
+                                                   var ...))))
+    (pattern (~seq #:rule
+                   (rule-name:str (~seq #:check
+                                        (var ...)
+                                        code)))
+             #:with result
+             (quasitemplate ((lambda (var ...)
+                               (when (not code)
+                                 (let ([args (flatten (map list
+                                                           (map symbol->string'(var ...))
+                                                           (list var ...)))])
+                                   (apply raise-arguments-error
+                                          (string->symbol rule-name)
+                                          "check failed"
+                                          args
+                                          ))
+                                 ))
+                             var ...)))
+    (pattern (~seq #:rule
+                   (rule-name:str (~seq #:at-least
+                                        min-ok:exact-positive-integer
+                                        (~optional predicate:expr)
+                                        (var ...))))
+             #:with result (template (let ([num-valid (count (?? predicate (negate false?))
+                                                             (list var ...))])
+                                       (when (< num-valid min-ok )
+                                         (let ([args (flatten (map list
+                                                                   (map symbol->string'(var ...))
+                                                                   (list var ...)))])
+                                           (apply raise-arguments-error
+                                                  (string->symbol rule-name)
+                                                  "too many invalid fields"
+                                                  args)))))))
   ;;
   (define-splicing-syntax-class option
     (pattern (~seq #:make-setters))
@@ -115,7 +140,7 @@
     (pattern (~seq #:methods gen-name:id (definitions:expr ...)))
     (pattern (~seq #:omit-define-syntaxes))
     (pattern (~seq #:omit-define-values)))
-  
+
   (syntax-parse stx
     ((struct++ struct-id:id (field:field ...) opt:option ... )
      ; A double ... (used below) flattens one level
