@@ -1,7 +1,6 @@
-#lang racket
+#lang racket/base
 
-(require (for-syntax racket
-                     #;
+(require (for-syntax racket/base
                      (only-in racket/list
                               partition
                               flatten
@@ -13,6 +12,7 @@
          racket/contract/base
          racket/contract/region
          racket/function
+         (only-in racket/list flatten)
          "make_functional_setter.rkt")
 
 (provide struct++ struct->hash)
