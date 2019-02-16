@@ -1,9 +1,28 @@
 #lang at-exp racket
 
 (require handy/test-more
+         handy/utils
+         handy/struct
          "../main.rkt")
 
-(expect-n-tests 18)
+(expect-n-tests 25)
+
+(when #t
+  (test-suite
+   "struct->hash"
+
+   (struct++ person (name [(age 18) integer?]) #:transparent)
+   (define bob (person++ #:name 'bob #:age 20))
+   (is bob
+       (person 'bob 20)
+       "created bob"
+       )
+   (is (struct->hash person bob)
+       (hash 'name 'bob
+             'age 20)
+       "converted to hash"
+       )
+   ))
 
 (when #t
   (test-suite
@@ -17,21 +36,22 @@
                     [(weight 100) exact-positive-integer?]
                     [(shear-force 20) exact-positive-integer? number->string]
                     )
+             ()
              #:transparent)
 
    (dies (thunk (ball++)) "(ball++) dies")
-   
+
    ; none
    (is (ball++ #:owner 'tom #:maker 'toms #:color 'red
                #:texture 'rough #:weight 77 #:shear-force 17)
        (ball 'tom 'toms 'red "rough" 77 "17")
        "ball++ with all params specified works")
-   
+
    ; default
    (is (ball++ #:owner 'tom #:color 'red #:texture 'rough)
        (ball 'tom 'adidas 'red "rough" 100 "20")
        "ball++ can default")
-   
+
    ; contract
    (throws (thunk (ball++ #:owner 'tom #:texture 'rough #:color 'notarealcolor))
            @pregexp{expected: \(or/c \(quote red\) \(quote white\) \(quote black\)\)}
@@ -53,15 +73,16 @@
    (is (game++ #:player-names '("fred" "bob" "zack"))
        (game++ #:player-names '("bob" "fred" "zack"))
        @~a{(game++ '("fred" "bob" "zack")) sorted its player names upon creation})
-   
+
    ))
+
 
 (when #t
   (test-suite
    "functional setters"
 
    (struct++ book ([title string?][pages exact-positive-integer?]) #:transparent)
-   
+
    (define b (book++ #:title "title" #:pages 188))
    (is b
        (book "title" 188)
@@ -69,7 +90,7 @@
 
    (is (set-book-title b "newtitle")
        (book "newtitle" 188)
-       "successfully set the title")       
+       "successfully set the title")
 
    (is b
        (book "title" 188)
@@ -90,17 +111,65 @@
 
 (when #t
   (test-suite
-   "struct->hash"
+   "rules"
 
-   (struct++ person (name [(age 18) integer?]) #:transparent)
-   (define bob (person++ #:name 'bob #:age 20))
-   (is bob
-       (person 'bob 20)
-       "created bob"
-       )
-   (is (struct->hash person bob)
-       (hash 'name 'bob
-             'age 20)
-       "converted to hash"
+   (define eye-color/c  (apply or/c '(brown hazel blue green other)))
+   (struct++ person ([name (or/c symbol? non-empty-string?) symbol-string->string]
+                     [age positive?]
+                     [eyes eye-color/c]
+                     [(height #f) positive?]
+                     [(weight #f) positive?]
+                     [(bmi #f) positive?]
+                     [(felonies 0) positive-integer?]
+                     [(notes "")]
+                     )
+             (
+              #:rule ("bmi can be found" #:at-least 2 (height weight bmi))
+              #:rule ("ensure height"    #:transform height (height weight bmi) [(or height (sqrt (/ weight bmi)))])
+              #:rule ("ensure weight"    #:transform weight (height weight bmi) [(or weight (* (expt height 2) bmi))])
+              #:rule ("ensure bmi"       #:transform bmi    (height weight bmi) [(or bmi (/ 100 (expt height 2)))])
+              #:rule ("lie about age"    #:transform age (age) [(cond [(>= age 18) age]
+                                                                      [else 18.0])])
+              #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
+                                                                            (= 0 felonies))])
+
+              )
+             #:transparent
+             )
+   (throws (thunk (person++ #:name 'bob
+                            #:age 18
+                            #:eyes 'brown
+                            #:felonies 1
+                            #:bmi 20
+                            ))
+           #px"bmi can be found"
+           "need to supply at least two of bmi/height/weight")
+   (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
+         [fmt    "bmi/height/weight get populated if ~a is missing"]
+         [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height 2 'weight 100 'bmi 25)]
+         )
+     (for ([key '(height weight bmi)])
+       (is (hash->struct/kw person++ (safe-hash-remove base key))
+           correct
+           (format fmt key))))
+
+   (throws (thunk (person++ #:name 'bob
+                            #:age 18
+                            #:eyes 'brown
+                            #:felonies 1
+                            #:height 2
+                            #:weight 100
+                            ))
+           #px"eligible-for-military"
+           "can't join the army if you've committed a felony"
+           )
+   (is (person++ #:name 'bob
+                 #:age 16
+                 #:eyes 'brown
+                 #:height 2
+                 #:weight 100
+                 )
+       (person "bob" 18.0 'brown 2 100 25 0 "")
+       "bob lies about his age to join the military"
        )
    ))

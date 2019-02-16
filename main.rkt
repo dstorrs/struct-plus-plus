@@ -87,7 +87,7 @@
   ;;
   (define-splicing-syntax-class rule
     (pattern
-     (~seq #:rule (rule-name:str (~seq (~and #:transform kw) target (var ...) [code ...])))
+     (~seq #:rule (rule-name:str (~seq #:transform target (var ...) [code ...])))
      #:with result (template (set! target ((lambda (var ...) code ...) var ...))))
 
     (pattern
@@ -96,7 +96,7 @@
                     ((lambda (var ...)
                        (when (not code)
                          (let ([args (flatten (map list
-                                                   (map symbol->string'(var ...))
+                                                   (map symbol->string '(var ...))
                                                    (list var ...)))])
                            (apply raise-arguments-error
                                   (string->symbol rule-name)
@@ -122,8 +122,8 @@
   (syntax-parse stx
     ((struct++ struct-id:id
                (field:field ...)
-               ;(~optional (r:rule ...))
-               opt ... )
+               (~optional (r:rule ...))
+               opt ...)
      ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
@@ -138,7 +138,7 @@
             (make-ctor-contract
              ((field.required? (field.id (?? field.field-contract any/c))) ... predicate))
 
-            ;(void  r.result ...)
+            (?? (?@ r.result ...))
 
             (struct-id ((?? field.wrapper identity) field.id) ...))
           ;
