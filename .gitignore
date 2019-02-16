@@ -49,3 +49,4 @@ test.rkt
 compiled/
 node_modules/
 test
+scribblings
