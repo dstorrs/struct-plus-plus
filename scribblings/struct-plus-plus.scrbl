@@ -9,132 +9,189 @@
 
 @section{Introduction}
 
-This module extends Racket's @racket[struct] keyword in order to support field defaults, field contracts, and field wrapper functions.
+@racketmodname{struct-plus-plus} provides extended syntax for creating structs.  It does not support field options (#auto and #:mutable for individual fields), although those will be added.  Aside from that, it's a drop-in replacement for the normal @racket{struct} form.
 
-It does not currently support supertypes or mutable fields.
+struct-plus-plus offers the following benefits over normal @racket{struct}:
 
-It currently supports the #:mutable struct option, but that may be removed in a future version.
+@itemlist[
+          @item{keyword constructor}
+          @item{functional setter for each field}
+          @item{(optional) distinct defaults for individual fields}
+          @item{(optional) contracts for each field}
+          @item{(optional) wrapper functions for each field}
+          @item{(optional) dependency checking between fields}
+          @item{(optional) declarative syntax for business logic rules}
+          ]
 
 @section{Synopsis}
 
-@verbatim{
- (struct++ type:id (field ...) struct-option ...)
-
-   field =  field-id
-         | [field-id                   field-contract               ]
-         | [field-id                   field-contract   wrapper     ]
-         | [(field-id  default-value)                               ]
-         | [(field-id  default-value)  field-contract               ]
-         | [(field-id  default-value)  field-contract   wrapper
-
-   field-contract = contract?
-   
-   struct-option = As per the 'struct' builtin. (#:transparent, #:guard, etc)
-}
-
-WARNING: The #:mutable struct option is currently supported but may be disallowed in a future version.
-
-
-
-@verbatim{struct->hash}
-
-Converts any struct (i.e., not just ones declared with struct++) into a hash of field-names -> field-value.
-
-
-@section{Examples}
-
-Declare a @verbatim{pie} struct:
-
-@racketblock[ (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
-]
-
-
-The above line declares a struct named @racketidfont{pie}.
-
-pie has two fields: filling and cook-temp
- 
-filling accepts any value
- 
-cook-temp defaults to 450, must be an exact-positive-integer?,
-and the value will be run through the F->C function when the
-struct is created and whenever the field's functional setter
-(i.e. set-pie-cook-temp) is called
-
-It also creates the following functions:
+Let's make a struct that describes a person who wants to join the military.
 
 @racketblock[
-   (define/contract (pie++ #:filling filling #:cook-temp [cook-temp 450])
-     (->* (#:filling any/c) (#:cook-temp exact-positive-integer?) pie?)
-     (pie filling (F->C cook-temp)))
-
-   (define/contract (set-pie-filling p new-filling)
-     (-> pie? any/c pie?)
-     (struct-copy pie [filling new-filling]))
-     
-   (define/contract (set-pie-cook-temp p new-temp)
-     (-> pie? exact-positive-integer? pie?)
-     (struct-copy pie [cook-temp (F->C new-temp)]))
-
-   (define/contract (update-pie-cook-temp p func)
-     (-> pie? (-> any/c exact-positive-integer?) pie?)
-     (struct-copy pie [cook-temp (F->C (func <current-value>))]))
-]
-
-You can leave out some or all of the field options:
-
-@racketblock[
-   (struct++ pie (filling cook-temp))
-   (struct++ pie (filling [(cook-temp 450)])) 
-   (struct++ pie (filling [cook-temp       exact-positive-integer?      ]))
-   (struct++ pie (filling [cook-temp       exact-positive-integer? F->C ]))
-   (struct++ pie (filling [(cook-temp 450) exact-positive-integer?      ]))
-]
-
-Also, struct options are supported:
-
-@racketblock[
-   (struct++ pie
-             ([filling (or/c 'berry "berry" 'chocolate "chocolate" 'cheese "cheese")
-                       ~a]
-              [(cook-temp 450) exact-positive-integer? add1])
+   (struct++ recruit ([name           (or/c symbol? non-empty-string?) ~a]
+                      [age            positive?]
+                      [(height-m #f)  positive?]
+                      [(weight-kg #f) positive?]
+                      [(bmi #f)       positive?]
+                      [(felonies 0)   exact-nonnegative-integer?]
+                      [(notes "")]
+                      )
              #:transparent
-             #:guard
-             (with-contract pie
-               #:result (-> (or/c 'berry "berry"
-                                  'chocolate "chocolate"
-                                  'cheese "cheese")
-                            exact-positive-integer?
-                            symbol? ; the type, autosupplied by Racket
-                            any)
-               (lambda (filling cook-temp type)
-                 (values filling cook-temp))))
+             )
 ]
 
 
-@verbatim{struct->hash}
+@verbatim{
+ > (define bob (recruit++ #:name      'bob
+                          #:age       16
+                          #:height-m  2
+                          #:weight-kg 100))
+ > bob
+ (recruit "bob" 16 2 100 #f 0 "")
 
-Converts any struct (i.e., not just ones declared with struct++) into a hash of field-names -> field-value. This is especially useful for shuttling data between structs and the database (where you typically want hashes or lists).
+ > (set-recruit-age bob 18)
+ (recruit "bob" 18 2 100 #f 0 "")
 
-cf struct->list from the racket/struct package
+ > (recruit++ #:name 'tom)
+ application: required keyword argument not supplied
+ procedure: recruit++
+ required keyword: #:age
+}
+
+Note about constructors:
+
+There are two constructors for the @racket{recruit} datatype: @racket{recruit} and @racket{recruit++}.  @racket{struct++} will generate both of these while Racket's builtin @racket{struct} generates only @racket{recruit}. Only @racket{recruit++} has keywords, contracts, etc.  Using the default constructor will allow you to create structures that are invalid under the field contracts. See below:
 
 @verbatim{
- > (struct++ person (name [(age 18) integer?]) #:transparent)
- > (person++ #:name 'bob #:age 20)
- (person 'bob 20)
- > (struct->hash person (person 'bob 20))
- '#hash((age . 20) (name . bob))
- > (struct pet (species name ))
- > (struct->hash pet (pet 'dog 'Rover))
- '#hash((name . Rover) (species . dog))
+ > (recruit 'tom -3 99 10000 0.2 -27 'note)
+ (recruit 'tom -3 99 10000 0.2 -27 'note)
+
+ > (recruit++ #:name 'tom #:age -3 #:height-m 99 #:weight-kg 10000 #:bmi 0.2 #:felonies -27 #:notes 'note)
+ recruit++: contract violation
+   expected: positive?
+   given: -3
+   in: the #:age argument of
+       (->*
+        (#:age
+         positive?
+         #:name
+         (or/c symbol? non-empty-string?))
+        (#:bmi
+         positive?
+         #:felonies
+         natural?
+         #:height-m
+         positive?
+         #:notes
+         any/c
+         #:weight-kg
+         positive?)
+        recruit?)
+   contract from: (function recruit++)
+   blaming: top-level
+    (assuming the contract is correct)
 }
-  
-@section{TODO}
+
+@section{Syntax}
+
+@verbatim{
+  (struct++ type:id (field ...) rules struct-option ...)
+
+   field :    field-id
+            | (field-id                   field-contract               )
+            | (field-id                   field-contract   wrapper     )
+            | ((field-id  default-value)                               )
+            | ((field-id  default-value)  field-contract               )
+            | ((field-id  default-value)  field-contract   wrapper     )
+   
+   field-contract = contract?
+
+   rules     :
+               | (rule ...)
+
+   rule      :   #:rule (rule-name #:at-least N pred (field-id ...+))
+               | #:rule (rule-name #:check (field-id ...+) [code])
+               | #:rule (rule-name #:transform field-id (field-id ...+) (code ...))
+
+   rule-name :  string?
+
+   pred      :
+               | (-> any/c boolean?) = (negate false?)
+
+   code      : <expression> 
+   
+   struct-option : As per the 'struct' builtin. (#:transparent, #:guard, etc)
+}
+
+Note that supertypes are not supported as of this writing.  The setter functions generated by @racketmodname{struct-plus-plus} make use of struct-copy, which doesn't work reliably when dealing with supertypes.  See Alexis King's module @racketmodname{struct-update} for more details.
+
+@section{Rules}
+
+Structs always have business logic associated with them -- that's the entire point.  Much of that can be embodied as contracts or wrapper functions, but if you want to enforce requirements between fields then you need rules. No one wants to code all that stuff manually, so let's have some delicious syntactic sugar that lets us create them declaratively.
+
+Let's go back to our example of the recruit.  In order to be accepted into the military, you must be at least 18 years of age, have no felonies on your record, and be reasonably fit (BMI no more than 25).
+
+Bob @italic{really} wants to join the military, and he's willing to lie about his age to do that.
+
+@racketblock[
+
+   (define (get-min-age) 18.0)
+   (struct++ lying-recruit
+             ([name (or/c symbol? non-empty-string?) ~a]
+              [age positive?]
+              [(height-m #f) (between/c 0 3)]
+              [(weight-kg #f) positive?]
+	      [(bmi #f) positive?]
+              [(felonies 0) exact-positive-integer?]
+             )
+              (#:rule ("bmi can be found" #:at-least  2           (height-m weight-kg bmi))
+               #:rule ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+               #:rule ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+               #:rule ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+               #:rule ("lie about age"    #:transform   age       (age) [(define min-age (get-min-age))
+                                                                         (cond [(>= age 18) age]
+                                                                               [else min-age])])
+               #:rule ("eligible-for-military?" #:check           (age felonies bmi) [(and (>= age 18)
+                                                                                           (= 0 felonies)
+                                                                                           (<= 25 bmi))]))
+            #:transparent)
+]
+
+@verbatim{
+
+  > (define bob (lying-recruit++ #:name      'bob
+                                 #:age       16
+                                 #:height-m  2
+                                 #:weight-kg 100))
+
+  > bob
+  (lying-recruit "bob" 18.0 2 100 25 0)
+}
+
+Note that Bob's name has been changed from a symbol to a string as per Army regulation 162.11a, his age has magically changed from 16 to 18.0, and his BMI has been calculated.  Suppose we try to invalidate these constraints?
+
+@verbatim{
+  > (set-lying-recruit-age bob 3)
+  (lying-recruit "bob" 3 2 100 25 0)
+}
+
+Oops, the setters don't respect the rules!  That's still TODO and will be coming out in the next release.
+
+@section{Warnings, Notes, and TODOs}
+
+Some of these were already mentioned above:
 
 @itemlist[
-        @item{support supertypes.  This means we can't use struct-copy.  See the @racketmodname[struct-update] module for why, and for solutions}
-        @item{reflection.  Simplify introspection by making the values from struct-id available at runtime} 
+  @item{@racket{recruit++} checks contracts etc.  @racket{recruit} does not}
+  @item{TODO: DANGER.  The functional setters do not respect the declarative business rules.}
+  @item{#:transform rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
+  @item{#:check rules take exactly one expression in their code segment.  It's expected to return a boolean, where #t means the rule passed and #f causes it to use @racket{raise-arguments-error}}
+  @item{Rules are processed in order. Changes made by a #:transform rule will be seen by later rules}
+  @item{TODO: add a keyword that will control generation of the functional setters}
+  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules}
+  @item{None of the generated functions are exported.  You'll need to list them in your (provide) line manually}
 ]
 
-@section{Ramblings}
+With great thanks to Greg Hendershott for his "Fear of Macros" essay, and to Alexis King for teaching me a lot about macros over email and providing the struct-update module which gave me a lot of inspiration.
 
-It might be worth it to wrap a contract around the non-keyword constructor and forbid the #:mutable struct option.  This would make it impossible to have a struct++ item that did not match its contracts.  On the other hand, trusting the programmer to know what they're doing is a good thing.  Maybe add a struct option that would enable this behavior?
+And, as always, to the dev team who produced and maintains Racket.  You guys rule.
