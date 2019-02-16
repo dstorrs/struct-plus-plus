@@ -33,7 +33,7 @@
                     [(maker 'adidas)]
                     [color (or/c 'red 'white 'black)]
                     [texture  (or/c 'rough 'smooth) symbol->string]
-                    [(weight 100) exact-positive-integer?]
+                    [(weight-kg 100) exact-positive-integer?]
                     [(shear-force 20) exact-positive-integer? number->string]
                     )
              ()
@@ -43,7 +43,7 @@
 
    ; none
    (is (ball++ #:owner 'tom #:maker 'toms #:color 'red
-               #:texture 'rough #:weight 77 #:shear-force 17)
+               #:texture 'rough #:weight-kg 77 #:shear-force 17)
        (ball 'tom 'toms 'red "rough" 77 "17")
        "ball++ with all params specified works")
 
@@ -114,22 +114,23 @@
    "rules"
 
    (define eye-color/c  (apply or/c '(brown hazel blue green other)))
-   (struct++ person ([name (or/c symbol? non-empty-string?) symbol-string->string]
-                     [age positive?]
-                     [eyes eye-color/c]
-                     [(height #f) positive?]
-                     [(weight #f) positive?]
-                     [(bmi #f) positive?]
-                     [(felonies 0) positive-integer?]
+   (struct++ person ([name           (or/c symbol? non-empty-string?) symbol-string->string]
+                     [age            positive?]
+                     [eyes           eye-color/c]
+                     [(height-m #f)  positive?]
+                     [(weight-kg #f) positive?]
+                     [(bmi #f)       positive?]
+                     [(felonies 0)   positive-integer?]
                      [(notes "")]
                      )
              (
-              #:rule ("bmi can be found" #:at-least 2 (height weight bmi))
-              #:rule ("ensure height"    #:transform height (height weight bmi) [(or height (sqrt (/ weight bmi)))])
-              #:rule ("ensure weight"    #:transform weight (height weight bmi) [(or weight (* (expt height 2) bmi))])
-              #:rule ("ensure bmi"       #:transform bmi    (height weight bmi) [(or bmi (/ 100 (expt height 2)))])
-              #:rule ("lie about age"    #:transform age (age) [(cond [(>= age 18) age]
-                                                                      [else 18.0])])
+              #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
+              #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+              #:rule ("ensure weight-kg"       #:transform weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+              #:rule ("ensure bmi"             #:transform bmi    (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+              #:rule ("lie about age"          #:transform age (age) [(define lie 18.0)
+                                                                      (cond [(>= age 18) age]
+                                                                            [else lie])])
               #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
                                                                             (= 0 felonies))])
 
@@ -143,12 +144,12 @@
                             #:bmi 20
                             ))
            #px"bmi can be found"
-           "need to supply at least two of bmi/height/weight")
+           "need to supply at least two of bmi/height-m/weight-kg")
    (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
-         [fmt    "bmi/height/weight get populated if ~a is missing"]
-         [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height 2 'weight 100 'bmi 25)]
+         [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
+         [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
          )
-     (for ([key '(height weight bmi)])
+     (for ([key '(height-m weight-kg bmi)])
        (is (hash->struct/kw person++ (safe-hash-remove base key))
            correct
            (format fmt key))))
@@ -157,8 +158,8 @@
                             #:age 18
                             #:eyes 'brown
                             #:felonies 1
-                            #:height 2
-                            #:weight 100
+                            #:height-m 2
+                            #:weight-kg 100
                             ))
            #px"eligible-for-military"
            "can't join the army if you've committed a felony"
@@ -166,8 +167,8 @@
    (is (person++ #:name 'bob
                  #:age 16
                  #:eyes 'brown
-                 #:height 2
-                 #:weight 100
+                 #:height-m 2
+                 #:weight-kg 100
                  )
        (person "bob" 18.0 'brown 2 100 25 0 "")
        "bob lies about his age to join the military"
