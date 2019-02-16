@@ -87,11 +87,11 @@
   ;;
   (define-splicing-syntax-class rule
     (pattern
-     (~seq #:rule (rule-name:str (~seq #:transform target (var ...) [code ...])))
+     (~seq #:rule (rule-name:str (~seq #:transform target (var:id ...) [code:expr ...+])))
      #:with result (template (set! target ((lambda (var ...) code ...) var ...))))
 
     (pattern
-     (~seq #:rule (rule-name:str (~seq #:check (var ...) [code])))
+     (~seq #:rule (rule-name:str (~seq #:check (var:id ...) [code:expr])))
      #:with result (template
                     ((lambda (var ...)
                        (when (not code)
@@ -108,7 +108,7 @@
            (rule-name:str (~seq #:at-least
                                 min-ok:exact-positive-integer
                                 (~optional predicate:expr)
-                                (var ...))))
+                                (var:id ...))))
      #:with result (template (let ([num-valid (count (?? predicate (negate false?))
                                                      (list var ...))])
                                (when (< num-valid min-ok )
