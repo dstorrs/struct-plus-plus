@@ -1,7 +1,7 @@
 #lang info
 
 (define collection "struct-plus-plus")
-(define version "1.3")
+(define version "2.0")
 (define deps '("base"
                "handy"
                "syntax-classes-lib"))
