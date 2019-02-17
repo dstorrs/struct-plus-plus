@@ -9,9 +9,9 @@
 
 @section{Introduction}
 
-@racketmodname{struct-plus-plus} provides extended syntax for creating structs.  It does not support field options (#auto and #:mutable for individual fields), although those will be added.  Aside from that, it's a drop-in replacement for the normal @racket{struct} form.
+@racketmodname{struct-plus-plus} provides extended syntax for creating structs.  It does not support field options (#:auto and #:mutable for individual fields), although those will be added.  Aside from that, it's a drop-in replacement for the normal @racket{struct} form. So long as your struct does not use field options, you can literally just change @racket{struct} to @racket{struct++} and your code will continue to work as before but you will now have a keyword constructor and functional setters for all the fields.
 
-struct-plus-plus offers the following benefits over normal @racket{struct}:
+@racketmodname{struct-plus-plus} offers the following benefits over normal @racket{struct}:
 
 @itemlist[
           @item{keyword constructor}
@@ -104,7 +104,7 @@ There are two constructors for the @racket{recruit} datatype: @racket{recruit} a
             | ((field-id  default-value)  field-contract               )
             | ((field-id  default-value)  field-contract   wrapper     )
    
-   field-contract = contract?
+   field-contract : contract? = any/c
 
    rules     :
                | (rule ...)
@@ -182,14 +182,15 @@ Oops, the setters don't respect the rules!  That's still TODO and will be coming
 Some of these were already mentioned above:
 
 @itemlist[
-  @item{@racket{recruit++} checks contracts etc.  @racket{recruit} does not}
-  @item{TODO: DANGER.  The functional setters do not respect the declarative business rules.}
+  @item{@racket{recruit++} checks contracts and rules etc.  @racket{recruit} does not}
+  @item{TODO: DANGER.  As of this writing, the functional setters do not respect the declarative business rules.}
   @item{#:transform rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
-  @item{#:check rules take exactly one expression in their code segment.  It's expected to return a boolean, where #t means the rule passed and #f causes it to use @racket{raise-arguments-error}}
+  @item{#:check rules take exactly one expression in their code segment.  If the returned value is true then the rule passed, and if it's #f then the rule calls @racket{raise-arguments-error}}
   @item{Rules are processed in order. Changes made by a #:transform rule will be seen by later rules}
   @item{TODO: add a keyword that will control generation of the functional setters}
-  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules}
-  @item{None of the generated functions are exported.  You'll need to list them in your (provide) line manually}
+  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct #:mutable, obviously)}
+    @item{None of the generated functions are exported.  You'll need to list them in your (provide) line manually}
+    @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket{[(username #f) non-empty-string?]} but you don't pass a value to it during construction then you will have an invalid value (#f in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of #f and a wrapper function of @racket{add1} then you are setting yourself up for failure.}
 ]
 
 With great thanks to Greg Hendershott for his "Fear of Macros" essay, and to Alexis King for teaching me a lot about macros over email and providing the struct-update module which gave me a lot of inspiration.
