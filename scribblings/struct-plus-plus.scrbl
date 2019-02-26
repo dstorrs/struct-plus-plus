@@ -23,6 +23,10 @@
           @item{(optional) declarative syntax for business logic rules}
           ]
 
+@section{Design Goal}
+
+The intent is to move structs from being dumb data repositories into being data models in the sense of MVC programming.  They should contain data that is internally consistent and valid according to business rules.  This centralizes the checks that would otherwise need to be done at the point of use.
+
 @section{Synopsis}
 
 Let's make a struct that describes a person who wants to join the military.
@@ -111,7 +115,7 @@ There are two constructors for the @racket{recruit} datatype: @racket{recruit} a
 
    rule      :   #:rule (rule-name #:at-least N pred (field-id ...+))
                | #:rule (rule-name #:check (field-id ...+) [code])
-               | #:rule (rule-name #:transform field-id (field-id ...+) (code ...))
+               | #:rule (rule-name #:transform field-id (field-id ...+) (code ...+))
 
    rule-name :  string?
 
@@ -156,6 +160,7 @@ Bob @italic{really} wants to join the military, and he's willing to lie about hi
                                                                                            (<= 25 bmi))]))
             #:transparent)
 ]
+											      Note: In the "ensure height-m" rule it is not necessary to check that you have both weight-kg and bmi because the "bmi can be found" rule has already established that.  The same applies to the "ensure weight-kg" and "ensure bmi" rules.
 
 @verbatim{
 
@@ -191,8 +196,9 @@ Some of these were already mentioned above:
   @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct #:mutable, obviously)}
     @item{None of the generated functions are exported.  You'll need to list them in your (provide) line manually}
     @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket{[(username #f) non-empty-string?]} but you don't pass a value to it during construction then you will have an invalid value (#f in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of #f and a wrapper function of @racket{add1} then you are setting yourself up for failure.}
+    @item{TODO:  Add more complex variations of #:at-least, such as:  #:at-least 1 (person-id (person-name department-id))}
 ]
 
-With great thanks to Greg Hendershott for his "Fear of Macros" essay, and to Alexis King for teaching me a lot about macros over email and providing the struct-update module which gave me a lot of inspiration.
+With great thanks to Greg Hendershott for his "Fear of Macros" essay, and to Alexis King (aka lexi-lambda) for teaching me a lot about macros over email and providing the struct-update module which gave me a lot of inspiration.
 
 And, as always, to the dev team who produced and maintains Racket.  You guys rule.
