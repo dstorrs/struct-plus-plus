@@ -184,10 +184,10 @@
                                 min-ok:exact-positive-integer
                                 (~optional predicate:expr)
                                 (var:id ...))))
-     #:with result (template (let ([num-valid (count (?? predicate (procedure-rename
-                                                                    (negate false?)
-                                                                    'true?))
-                                                     (list var ...))])
+     #:with result (template (let* ([pred (?? predicate (procedure-rename
+                                                         (negate false?)
+                                                         'true?))]
+                                    [num-valid (count pred (list var ...))])
                                (when (< num-valid min-ok )
                                  (let ([args (flatten (map list
                                                            (map symbol->string '(var ...))
@@ -196,7 +196,7 @@
                                           (string->symbol rule-name)
                                           "too many invalid fields"
                                           "minimum allowed" min-ok
-                                          "predicate" predicate
+                                          "predicate" pred
                                           args)))))))
   (define-splicing-syntax-class converter
     (pattern (~seq #:convert-for (name (opt ...+)))))
