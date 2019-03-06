@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require handy/hash
+         handy/struct
          (for-syntax racket/base
                      (only-in racket/list
                               append-map
@@ -16,7 +17,7 @@
          racket/contract/region
          racket/function
          (only-in racket/list count flatten)
-         "make_functional_setter.rkt")
+         )
 
 (provide struct++ struct->hash)
 
@@ -71,10 +72,58 @@
   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
 
 (define-syntax (struct++ stx)
+  (define-template-metafunction (make-functional-setter stx)
+    (syntax-parse stx
+      [(make-functional-setter #f
+                               struct-id ctor-id predicate
+                               field-name field-contract wrapper)
+       #''()]
+      [(make-functional-setter #t
+                               struct-id ctor-id predicate
+                               field-name field-contract wrapper)
+       (with-syntax ([setter-name (format-id #'struct-id
+                                             "set-~a-~a"
+                                             #'struct-id
+                                             #'field-name)])
+         (template
+          (define/contract (setter-name instance val)
+            (-> predicate field-contract predicate)
+            (hash->struct/kw ctor-id
+                             (safe-hash-set (struct->hash struct-id instance)
+                                            'field-name
+                                            (wrapper val))))))]))
+
+  (define-template-metafunction (make-functional-updater stx )
+    (syntax-parse stx
+      [(make-functional-updater #f
+                                struct-id ctor-id predicate
+                                field-name field-contract wrapper)
+       #''()
+       ]
+      [(make-functional-updater #t
+                                struct-id ctor-id predicate
+                                field-name field-contract wrapper)
+       (with-syntax ([updater-name (format-id #'struct-id
+                                              "update-~a-~a"
+                                              #'struct-id
+                                              #'field-name)]
+                     [getter (format-id  #'struct-id
+                                         "~a-~a"
+                                         #'struct-id
+                                         #'field-name)]
+                     )
+         (template
+          (define/contract (updater-name instance updater)
+            (-> predicate field-contract predicate)
+            (hash->struct/kw ctor-id
+                             (safe-hash-set (struct->hash struct-id instance)
+                                            'field-name
+                                            (wrapper (updater (getter instance))))))))]))
+
   (define-template-metafunction (make-converter-function stx)
     (syntax-parse stx
       [(make-converter-function  struct-id purpose predicate arg ...)
-       (with-syntax ([funcname (format-id #'struct-id "~a/convert->~a" #'struct-id #'purpose)] )
+       (with-syntax ([funcname (format-id #'struct-id "~a/convert->~a" #'struct-id #'purpose)])
          (template
           (define/contract (funcname instance)
             (-> predicate any)
@@ -135,7 +184,9 @@
                                 min-ok:exact-positive-integer
                                 (~optional predicate:expr)
                                 (var:id ...))))
-     #:with result (template (let ([num-valid (count (?? predicate (negate false?))
+     #:with result (template (let ([num-valid (count (?? predicate (procedure-rename
+                                                                    (negate false?)
+                                                                    'true?))
                                                      (list var ...))])
                                (when (< num-valid min-ok )
                                  (let ([args (flatten (map list
@@ -144,14 +195,22 @@
                                    (apply raise-arguments-error
                                           (string->symbol rule-name)
                                           "too many invalid fields"
+                                          "minimum allowed" min-ok
+                                          "predicate" predicate
                                           args)))))))
   (define-splicing-syntax-class converter
     (pattern (~seq #:convert-for (name (opt ...+)))))
 
+  (define-splicing-syntax-class make-setters-clause
+    (pattern (~seq #:make-setters? yes?:boolean)))
+
   (syntax-parse stx
     ((struct++ struct-id:id
                (field:field ...)
-               (~optional ((~or c:converter r:rule) ...))
+               (~optional ((~alt (~optional make-setters:make-setters-clause)
+                                 c:converter
+                                 r:rule)
+                           ...))
                opt ...
                )
      ; A double ... (used below) flattens one level
@@ -170,17 +229,25 @@
 
             (struct-id ((?? field.wrapper identity) field.id) ...))
           ;
-          (~? (~@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
+          (?? (?@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
           ;
           (begin
-            (make-functional-setter  struct-id field.id
-                                     (?? field.field-contract any/c)
-                                     (?? field.wrapper identity))
+            (make-functional-setter (?? make-setters.yes? #t)
+                                    struct-id ctor-id predicate
+                                    field.id
+                                    (?? field.field-contract any/c)
+                                    (?? field.wrapper identity)
+                                    )
             ...)
-          (begin (make-functional-updater struct-id field.id
-                                          (?? field.field-contract any/c)
-                                          (?? field.wrapper identity))
-                 ...)))))))
-
+          (begin
+            (make-functional-updater (?? make-setters.yes? #t)
+                                     struct-id ctor-id predicate
+                                     field.id
+                                     (?? field.field-contract any/c)
+                                     (?? field.wrapper identity)
+                                     )
+            ...
+            )
+          ))))))
 
 ;;-----------------------------------------------------------------------
