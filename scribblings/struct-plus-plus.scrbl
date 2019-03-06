@@ -21,6 +21,7 @@
           @item{(optional) wrapper functions for each field}
           @item{(optional) dependency checking between fields}
           @item{(optional) declarative syntax for business logic rules}
+          @item{(optional) declarative syntax for converting the structures to arbitrary other values}
           ]
 
 @section{Design Goal}
@@ -32,16 +33,45 @@ The intent is to move structs from being dumb data repositories into being data 
 Let's make a struct that describes a person who wants to join the military.
 
 @racketblock[
-   (struct++ recruit ([name           (or/c symbol? non-empty-string?) ~a]
-                      [age            positive?]
-                      [(height-m #f)  positive?]
-                      [(weight-kg #f) positive?]
-                      [(bmi #f)       positive?]
-                      [(felonies 0)   exact-nonnegative-integer?]
-                      [(notes "")]
-                      )
-             #:transparent
+
+   (define (get-min-age) 18.0)
+   (struct++ lying-recruit
+             ([name (or/c symbol? non-empty-string?) ~a]
+              [age positive?]
+              [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)]
+              [(height-m #f) (between/c 0 3)]
+              [(weight-kg #f) positive?]
+	      [(bmi #f) positive?]
+              [(felonies 0) exact-positive-integer?]
              )
+             (#:rule ("bmi can be found" #:at-least  2           (height-m weight-kg bmi))
+              #:rule ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+              #:rule ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+              #:rule ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+              #:rule ("lie about age"    #:transform   age       (age) [(define min-age (get-min-age))
+                                                                        (cond [(>= age 18) age]
+                                                                              [else min-age])])
+              #:rule ("eligible-for-military?" #:check           (age felonies bmi) [(and (>= age 18)
+                                                                                          (= 0 felonies)
+                                                                                          (<= 25 bmi))])
+              #:convert-for (db (#:remove '(eyes bmi)
+                                 #:rename (hash 'height-m 'height 'weight-kg 'weight)))
+              #:convert-for (alist (#:remove '(bmi eyes)
+                                    #:rename (hash 'height-m 'height 'weight-kg 'weight)
+                                    #:post hash->list))
+              #:convert-for (json (#:action-order '(rename remove add overwrite)
+                                   #:rename (hash 'height-m 'height 'weight-kg 'weight)
+                                   #:remove '(felonies)
+                                   #:add (hash 'vision "20/20")
+                                   #:overwrite (hash 'hair "brown"
+                                                     'shirt (thunk "t-shirt")
+                                                     'age (lambda (age) (* 365 age))
+                                                     'vision (lambda (h key val)
+                                                               (if (> (hash-ref h 'age) 30)
+                                                                   "20/15"
+                                                                   val)))))
+              )
+            #:transparent)
 ]
 
 
@@ -57,9 +87,30 @@ Let's make a struct that describes a person who wants to join the military.
  (recruit "bob" 18 2 100 #f 0 "")
 
  > (recruit++ #:name 'tom)
- application: required keyword argument not supplied
- procedure: recruit++
- required keyword: #:age
+ ; application: required keyword argument not supplied
+ ; procedure: recruit++
+ ; required keyword: #:age
+
+ > (recruit/convert->db bob)
+ '#hash((name . "bob")
+        (age . 18.0)
+        (height . 2)
+        (weight . 100)
+        (felonies . 0))
+
+ > (recruit/convert->alist bob)
+ '((age . 18.0) (name . "bob") (felonies . 0) (weight . 100) (height . 2))
+ 
+ > (recruit/convert->json bob)
+ '#hash((name . "bob")
+        (age . 6570.0)
+        (height . 2)
+        (weight . 100)
+        (bmi . 25)
+        (eyes . "brown")
+        (hair . "brown")
+        (shirt . "t-shirt")
+        (vision . "20/20"))
 }
 
 Note about constructors:
@@ -155,8 +206,6 @@ There are two constructors for the @racket{recruit} datatype: @racket{recruit} a
    struct-option : As per the 'struct' builtin. (#:transparent, #:guard, etc)
 }
 
-For details on @racket{#:to-hash} options, see @racket{hash-remap} in the @racketmodname{handy/hash} module.
-    
 Note that supertypes are not supported as of this writing.  The setter functions generated by @racketmodname{struct-plus-plus} make use of struct-copy, which doesn't work reliably when dealing with supertypes.  See Alexis King's module @racketmodname{struct-update} for more details.
 
 @section{Rules}
@@ -190,7 +239,8 @@ Bob @italic{really} wants to join the military, and he's willing to lie about hi
                                                                                            (<= 25 bmi))]))
             #:transparent)
 ]
-											      Note: In the "ensure height-m" rule it is not necessary to check that you have both weight-kg and bmi because the "bmi can be found" rule has already established that.  The same applies to the "ensure weight-kg" and "ensure bmi" rules.
+
+Note: In the "ensure height-m" rule it is not necessary to check that you have both weight-kg and bmi because the "bmi can be found" rule has already established that.  The same applies to the "ensure weight-kg" and "ensure bmi" rules.
 
 @verbatim{
 
@@ -211,6 +261,25 @@ Note that Bob's name has been changed from a symbol to a string as per Army regu
 }
 
 Oops, the setters don't respect the rules!  That's still TODO and will be coming out in the next release.
+
+
+@section{Converters}
+
+When marshalling a struct for writing to a database, a file, etc, it is useful to turn it into different data structure, usually but not always a hash.  Converters will change the struct into a hash, then pass the hash to the @racket{hash-remap} function in @racketmodname{handy}, allowing you to return anything you want.  See the handy/hash docs for details, but a quick summary:
+
+@itemlist[
+          @item{#:remove <list> : delete the keys in the list from the hash}
+          @item{#:overwrite <hash> : change the values of existing keys or add missing ones}
+          @item{#:add <hash> : add one or more keys to the hash, die if they were already there}
+          @item{#:rename <hash> : change the names of one or more keys}
+          @item{#:default <hash> : if a key is there, leave it alone.  If not, add it}
+          @item{value-is-default? : change the behavior of #:default so that it sets the value of missing keys or keys that match a specified predicate}
+          @item{action-order : specify in what order to apply the above options}
+          @item{post : run the resulting hash through a function that returns anything you want}
+          ]
+
+Note that @racket{#:overwrite} provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
+               
 
 @section{Warnings, Notes, and TODOs}
 
