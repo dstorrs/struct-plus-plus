@@ -185,14 +185,14 @@ There are two constructors for the @racket{recruit} datatype: @racket{recruit} a
 
    convert-name : id
    
-   hash-option :   #:include      (key ...+)
-                 | #:remove       (key ...+)
+   hash-option :   #:include      (list key ...+)
+                 | #:remove       (list key ...+)
                  | #:overwrite    (hash [key value-generator] ...)
                  | #:add          (hash [key value-generator] ...)
                  | #:rename       (hash [key value-generator] ...)
                  | #:default      (hash [key value-generator] ...)
                  | #:post         (-> hash? any) = identity
-                 | #:action-order ((or/c 'include 'remove 'overwrite
+                 | #:action-order (list (or/c 'include 'remove 'overwrite
                                          'add 'rename 'default) ...+)
                         = '(include remove overwrite add rename default)
 
