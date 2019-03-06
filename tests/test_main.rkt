@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 32)
+(expect-n-tests 35)
 
 (when #t
   (test-suite
