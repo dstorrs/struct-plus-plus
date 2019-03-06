@@ -19,6 +19,10 @@
    (make-functional-setter book num-pages natural-number/c)
    (make-functional-setter book filepath path-string? ~a)
 
+   (make-functional-updater book title)
+   (make-functional-updater book num-pages natural-number/c)
+   (make-functional-updater book filepath path-string? ~a)
+
    (define (verify-setter getter setter old-val setter-arg correct-result)
      (is (getter b)
          old-val
@@ -29,15 +33,28 @@
                            ""))
      (is (getter (setter b setter-arg))
          correct-result
-         (~a "after setter " (object-name setter) ", value is correct." extra-msg)))
+         (~a "after " (object-name setter) ", value is correct." extra-msg)))
+
+   (define (verify-updater getter updater old-val updater-arg correct-result)
+     (is (getter b)
+         old-val
+         (~a (object-name getter) " started off with the expected value"))
+     (is (getter (updater b updater-arg))
+         correct-result
+         (~a "after " (object-name updater) ", value is correct.")))   
 
    (for ([getter      (list book-title book-num-pages book-filepath)]
          [setter      (list set-book-title set-book-num-pages set-book-filepath)]
+         [updater     (list update-book-title update-book-num-pages update-book-filepath)]
          [old-val     orig-args]
          [setter-arg  (list "Tom Sawyer" 18 (build-path "/tmp/foobar"))]
-         [correct     (list "Tom Sawyer" 18 "/tmp/foobar")])
+         [set-correct (list "Tom Sawyer" 18 "/tmp/foobar")]
+         [updater-arg (list string-upcase add1 (compose car explode-path))]
+         [update-correct     (list "FOUNDATION" 298 "/")]
+         )
      
-     (verify-setter getter setter old-val setter-arg correct))
+     (verify-setter  getter setter  old-val setter-arg set-correct)
+     (verify-updater getter updater old-val updater-arg update-correct))
 
    (throws (thunk (set-book-num-pages b 'invalid))
            #px"expected: natural-number/c"
