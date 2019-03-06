@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 25)
+(expect-n-tests 28)
 
 (when #t
   (test-suite
@@ -174,3 +174,23 @@
        "bob lies about his age to join the military"
        )
    ))
+
+(when #t
+  (test-suite
+   "to-hash"
+
+   (struct++ person
+             (name age height eyes)
+             (#:to-hash (db (#:remove '(height eyes) #:add (hash 'race 'unknown)))
+              #:to-hash (json (#:remove '(name height) #:add (hash 'location "unknown")))))
+
+   (let ([sample (person 'bob 19 7 'brown)])
+     (is (person->hash/db sample)
+         (hash 'name 'bob 'age 19 'race 'unknown)
+         "successfully converted to hash for DB")
+
+     (is (person->hash/json sample)
+         (hash 'age 19 'eyes 'brown 'location "unknown")
+         "successfully converted to hash for JSON"))   
+   )
+  )

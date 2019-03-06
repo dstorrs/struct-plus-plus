@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require (for-syntax racket/base
+(require handy/hash
+         (for-syntax racket/base
                      (only-in racket/list
                               append-map
                               count
@@ -18,6 +19,22 @@
          "make_functional_setter.rkt")
 
 (provide struct++ struct->hash)
+
+(define-syntax struct->hash
+  (syntax-parser
+    [(_ s:struct-id instance:expr)
+     (template
+      (let* ([name-str (symbol->string  (object-name s.constructor-id))]
+             [field-name (lambda (f)
+                           (string->symbol
+                            (regexp-replace (pregexp (string-append  name-str "-"))
+                                            (symbol->string (object-name f))
+                                            "")))]
+             )
+        (make-immutable-hash (list  (cons  (field-name s.accessor-id)
+                                           (s.accessor-id instance)
+                                           ) ...))))]))
+
 
 ;; See scribblings/struct-plus-plus.scrbl for full details.  Cheat sheet:
 ;;
@@ -54,6 +71,15 @@
   (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
 
 (define-syntax (struct++ stx)
+  (define-template-metafunction (make-converter-function stx)
+    (syntax-parse stx
+      [(make-converter-function  struct-id purpose predicate arg ...)
+       (with-syntax ([funcname (format-id #'struct-id "~a->hash/~a" #'struct-id #'purpose)] )
+         (template
+          (define/contract (funcname instance)
+            (-> predicate hash?)
+            (hash-remap (struct->hash struct-id instance) (~@ arg ...)))))]))
+
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
       (pattern (required?:boolean  (name:id contr:expr))))
@@ -113,25 +139,27 @@
                                                      (list var ...))])
                                (when (< num-valid min-ok )
                                  (let ([args (flatten (map list
-                                                           (map symbol->string'(var ...))
+                                                           (map symbol->string '(var ...))
                                                            (list var ...)))])
                                    (apply raise-arguments-error
                                           (string->symbol rule-name)
                                           "too many invalid fields"
                                           args)))))))
+  (define-splicing-syntax-class converter
+    (pattern (~seq #:to-hash (name (opt ...+)))))
+
   (syntax-parse stx
     ((struct++ struct-id:id
                (field:field ...)
-               (~optional (r:rule ...))
-               opt ...)
+               (~optional ((~or c:converter r:rule) ...))
+               opt ...
+               )
      ; A double ... (used below) flattens one level
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
-                    [predicate (format-id #'struct-id "~a?" #'struct-id)]
-                    )
+                    [predicate (format-id #'struct-id "~a?" #'struct-id)])
        (template
         (begin
-          ;
           (struct struct-id (field.id ...) opt ...)
           ;
           (define/contract (ctor-id ctor-arg ... ...)
@@ -141,6 +169,8 @@
             (?? (?@ r.result ...))
 
             (struct-id ((?? field.wrapper identity) field.id) ...))
+          ;
+          (~? (~@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
           ;
           (begin
             (make-functional-setter  struct-id field.id
@@ -154,19 +184,3 @@
 
 
 ;;-----------------------------------------------------------------------
-
-(define-syntax struct->hash
-  (syntax-parser
-    [(_ s:struct-id instance:expr)
-     (template
-      (let* ([name-str (symbol->string  (object-name s.constructor-id))]
-             [field-name (lambda (f)
-                           (string->symbol
-                            (regexp-replace (pregexp (string-append  name-str "-"))
-                                            (symbol->string (object-name f))
-                                            "")))]
-             )
-        (make-immutable-hash (list  (cons  (field-name s.accessor-id)
-                                           (s.accessor-id instance)
-                                           ) ...))))
-     ]))
