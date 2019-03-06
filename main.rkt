@@ -74,10 +74,10 @@
   (define-template-metafunction (make-converter-function stx)
     (syntax-parse stx
       [(make-converter-function  struct-id purpose predicate arg ...)
-       (with-syntax ([funcname (format-id #'struct-id "~a->hash/~a" #'struct-id #'purpose)] )
+       (with-syntax ([funcname (format-id #'struct-id "~a/convert->~a" #'struct-id #'purpose)] )
          (template
           (define/contract (funcname instance)
-            (-> predicate hash?)
+            (-> predicate any)
             (hash-remap (struct->hash struct-id instance) (~@ arg ...)))))]))
 
   (define-template-metafunction (make-ctor-contract stx)
@@ -146,7 +146,7 @@
                                           "too many invalid fields"
                                           args)))))))
   (define-splicing-syntax-class converter
-    (pattern (~seq #:to-hash (name (opt ...+)))))
+    (pattern (~seq #:convert-for (name (opt ...+)))))
 
   (syntax-parse stx
     ((struct++ struct-id:id

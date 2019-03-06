@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 28)
+(expect-n-tests 32)
 
 (when #t
   (test-suite
@@ -177,20 +177,93 @@
 
 (when #t
   (test-suite
-   "to-hash"
+   "convert-for"
 
    (struct++ person
              (name age height eyes)
-             (#:to-hash (db (#:remove '(height eyes) #:add (hash 'race 'unknown)))
-              #:to-hash (json (#:remove '(name height) #:add (hash 'location "unknown")))))
+             (#:convert-for (db (#:remove '(height eyes) #:add (hash 'race 'unknown)))
+              #:convert-for (json (#:remove '(name height) #:add (hash 'location "unknown")))))
 
    (let ([sample (person 'bob 19 7 'brown)])
-     (is (person->hash/db sample)
+     (is (person/convert->db sample)
          (hash 'name 'bob 'age 19 'race 'unknown)
          "successfully converted to hash for DB")
 
-     (is (person->hash/json sample)
+     (is (person/convert->json sample)
          (hash 'age 19 'eyes 'brown 'location "unknown")
-         "successfully converted to hash for JSON"))   
+         "successfully converted to hash for JSON"))
    )
   )
+
+(when #t
+  (test-suite
+   "full deal"
+
+   (define (get-min-age) 18.0)
+   (struct++ recruit
+             ([name (or/c symbol? non-empty-string?) ~a]
+              [age positive?]
+              [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)]
+              [(height-m #f) (between/c 0 3)]
+              [(weight-kg #f) positive?]
+	      [(bmi #f) positive?]
+              [(felonies 0) exact-positive-integer?]
+              )
+             (#:rule ("bmi can be found" #:at-least  2           (height-m weight-kg bmi))
+              #:rule ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+              #:rule ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+              #:rule ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+              #:rule ("lie about age"    #:transform   age       (age) [(define min-age (get-min-age))
+                                                                        (cond [(>= age 18) age]
+                                                                              [else min-age])])
+              #:rule ("eligible-for-military?" #:check           (age felonies bmi) [(and (>= age 18)
+                                                                                          (= 0 felonies)
+                                                                                          (<= 25 bmi))])
+              #:convert-for (db (#:remove '(bmi eyes)
+                                 #:rename (hash 'height-m 'height 'weight-kg 'weight)))
+              #:convert-for (alist (#:remove '(bmi eyes)
+                                    #:rename (hash 'height-m 'height 'weight-kg 'weight)
+                                    #:post hash->list))
+              #:convert-for (json (#:action-order '(rename remove add overwrite)
+                                   #:rename (hash 'height-m 'height 'weight-kg 'weight)
+                                   #:remove '(felonies)
+                                   #:add (hash 'vision "20/20")
+                                   #:overwrite (hash 'hair "brown"
+                                                     'eyes symbol->string
+                                                     'shirt (thunk "t-shirt")
+                                                     'age (lambda (age) (* 365 age))
+                                                     'vision (lambda (h key val)
+                                                               (if (> (hash-ref h 'age) 30)
+                                                                   "20/15"
+                                                                   val)))))
+              )
+             #:transparent)
+
+   (define bob (recruit++ #:name      'bob
+                          #:age       16
+                          #:height-m  2
+                          #:weight-kg 100))
+   (is (recruit/convert->db bob)
+       '#hash((name . "bob")
+              (age . 18.0)
+              (height . 2)
+              (weight . 100)
+              (felonies . 0))
+       "(recruit/convert->db bob) works")
+
+   (is (recruit/convert->alist bob)
+       '((age . 18.0) (name . "bob") (felonies . 0) (weight . 100) (height . 2))
+       "(recruit/convert->alist bob) works")
+
+   (is (recruit/convert->json bob)
+       '#hash((name . "bob")
+              (age . 6570.0)
+              (height . 2)
+              (weight . 100)
+              (bmi . 25)
+              (eyes . "brown")
+              (hair . "brown")
+              (shirt . "t-shirt")
+              (vision . "20/20"))
+       "(recruit/convert->json bob) works"
+       )))
