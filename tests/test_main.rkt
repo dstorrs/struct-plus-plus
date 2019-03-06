@@ -107,6 +107,18 @@
    (throws (thunk (set-book-title b 'invalid))
            exn:fail:contract?
            "set-book-title respects datatype")
+
+   (is (update-book-title b string-upcase)
+       (book "TITLE" 188)
+       "(update-book-title b string-upcase) works")
+   
+   (is (update-book-pages b add1)
+       (book "title" 189)
+       "(update-book-pages b add1) works")
+
+   (throws (thunk (update-book-pages b (lambda (x) 'invalid)))
+           exn:fail:contract?
+           "(update-book-pages b (lambda (x) 'invalid)) threw due to violating field contract")
    ))
 
 (when #t

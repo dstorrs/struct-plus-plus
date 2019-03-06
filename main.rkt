@@ -114,7 +114,7 @@
                      )
          (template
           (define/contract (updater-name instance updater)
-            (-> predicate field-contract predicate)
+            (-> predicate (-> field-contract field-contract) predicate)
             (hash->struct/kw ctor-id
                              (safe-hash-set (struct->hash struct-id instance)
                                             'field-name
