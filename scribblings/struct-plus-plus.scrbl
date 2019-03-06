@@ -325,17 +325,16 @@ Converter functions are named @racket{<struct-name>/convert-><purpose>}, where '
 Some of these were already mentioned above:
 
 @itemlist[
-  @item{WARNING, TODO.  As of this writing, the functional setters do not respect the declarative business rules.}
-  @item{@racket{recruit++} checks contracts and rules etc.  @racket{recruit} does not}
-  @item{@racket{#:transform} rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
-  @item{@racket{#:check} rules take exactly one expression in their code segment.  If the returned value is true then the rule passed, and if it's @racket{#f} then the rule calls @racket{raise-arguments-error}}
-  @item{Rules are processed in order. Changes made by a @racket{#:transform} rule will be seen by later rules}
-    @item{None of the generated functions (@racket{struct-name++}, @racket{set-struct-name-field-name}, etc) are exported.  You'll need to list them in your @racket{provide} line manually}
-      @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket{[(userid #f) integer?]} but you don't pass a value to it during construction then you will have an invalid value (@racket{#f} in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket{#f} and a wrapper function of @racket{add1} then you are setting yourself up for failure.}
-      @item{See the @racket{hash-remap} function in the @racketmodname{handy} module for details on what the @racket{#:to-hash} converter options mean}
-    @item{TODO:  Add more complex variations of @racket{#:at-least}, such as:  @racket{#:at-least 1 (person-id (person-name department-id))}}
+  @item{@racket[recruit++] checks contracts and rules etc.  @racket[recruit] does not}
+  @item{@racket[#:transform] rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
+  @item{@racket[#:check] rules take exactly one expression in their code segment.  If the returned value is true then the rule passed, and if it's @racket[#f] then the rule calls @racket[raise-arguments-error]}
+  @item{Rules are processed in order. Changes made by a @racket[#:transform] rule will be seen by later rules}
+    @item{None of the generated functions (@racket[struct-name++], @racket[set-struct-name-field-name], etc) are exported.  You'll need to list them in your @racket[provide] line manually}
+      @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
+      @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
+    @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
     @item{TODO:  Add an option to enable easy runtime reflection by storing the elements of the transformer binding into a property at creation time}
-  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket{#:mutable})}
+  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
     
 ]
 
