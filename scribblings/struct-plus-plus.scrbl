@@ -306,8 +306,22 @@ When marshalling a struct for writing to a database, a file, etc, it is useful t
           ]
 
 Note that @racket{#:overwrite} provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
-               
 
+Converter functions are named @racket{<struct-name>/convert-><purpose>}, where 'purpose' is the name given to the conversion specification.  For example:
+
+@verbatim{
+> (struct++ person (name age)
+                   (#:convert-for (db (#:remove '(age)))
+                    #:convert-for (json (#:add (hash 'created-at (current-seconds))
+		                         #:post write-json)))
+  		   #:transparent)
+> (person/convert->db (person 'bob 18))
+'#hash((name . bob))
+> (person/convert->json (person "bob" 18))
+{"age":18,"name":"bob","created-at":1551904700}
+}
+
+		  
 @section{Warnings, Notes, and TODOs}
 
 Some of these were already mentioned above:
