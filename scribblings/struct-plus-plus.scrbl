@@ -34,83 +34,77 @@ Let's make a struct that describes a person who wants to join the military.
 
 @racketblock[
 
-   (define (get-min-age) 18.0)
-   (struct++ lying-recruit
-             ([name (or/c symbol? non-empty-string?) ~a]
-              [age positive?]
-              [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)]
-              [(height-m #f) (between/c 0 3)]
-              [(weight-kg #f) positive?]
-	      [(bmi #f) positive?]
-              [(felonies 0) exact-positive-integer?]
-             )
-             (#:rule ("bmi can be found" #:at-least  2           (height-m weight-kg bmi))
-              #:rule ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
-              #:rule ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
-              #:rule ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
-              #:rule ("lie about age"    #:transform   age       (age) [(define min-age (get-min-age))
-                                                                        (cond [(>= age 18) age]
-                                                                              [else min-age])])
-              #:rule ("eligible-for-military?" #:check           (age felonies bmi) [(and (>= age 18)
-                                                                                          (= 0 felonies)
-                                                                                          (<= 25 bmi))])
-              #:convert-for (db (#:remove '(eyes bmi)
-                                 #:rename (hash 'height-m 'height 'weight-kg 'weight)))
-              #:convert-for (alist (#:remove '(bmi eyes)
-                                    #:rename (hash 'height-m 'height 'weight-kg 'weight)
-                                    #:post hash->list))
-              #:convert-for (json (#:action-order '(rename remove add overwrite)
-                                   #:rename (hash 'height-m 'height 'weight-kg 'weight)
-                                   #:remove '(felonies)
-                                   #:add (hash 'vision "20/20")
-                                   #:overwrite (hash 'hair "brown"
-                                                     'shirt (thunk "t-shirt")
-                                                     'age (lambda (age) (* 365 age))
-                                                     'vision (lambda (h key val)
-                                                               (if (> (hash-ref h 'age) 30)
-                                                                   "20/15"
-                                                                   val)))))
-              )
-            #:transparent)
+(define (get-min-age) 18.0)
+(struct++ recruit
+          ([name (or/c symbol? non-empty-string?) ~a]
+           [age positive?]
+           [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)]
+           [(height-m #f) (between/c 0 3)]
+           [(weight-kg #f) positive?]
+           [(bmi #f) positive?]
+           [(felonies 0) natural-number/c])
+
+          (#:rule ("bmi can be found" #:at-least  2           (height-m weight-kg bmi))
+           #:rule ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+           #:rule ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+           #:rule ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+           #:rule ("lie about age"    #:transform   age       (age) [(define min-age (get-min-age))
+                                                                     (cond [(>= age 18) age]
+                                                                           [else min-age])])
+           #:rule ("eligible-for-military?" #:check           (age felonies bmi) [(and (>= age 18)
+                                                                                       (= 0 felonies)
+                                                                                       (<= 25 bmi))])
+           #:convert-for (db (#:remove '(eyes bmi)
+                              #:rename (hash 'height-m 'height 'weight-kg 'weight)))
+           #:convert-for (alist (#:remove '(bmi eyes)
+                                 #:rename (hash 'height-m 'height 'weight-kg 'weight)
+                                 #:post hash->list))
+           #:convert-for (json (#:action-order '(rename remove add overwrite)
+                                #:post  write-json
+                                #:rename (hash 'height-m 'height 'weight-kg 'weight)
+                                #:remove '(felonies)
+                                #:add (hash 'vision "20/20")
+                                #:overwrite (hash 'hair "brown"
+                                                  'eyes symbol->string
+                                                  'shirt (thunk "t-shirt")
+                                                  'age (lambda (age) (* 365 age))
+                                                  'vision (lambda (h key val)
+                                                            (if (> (hash-ref h 'age) 30)
+                                                                "20/15"
+                                                                val))))))
+
+          #:transparent)
 ]
 
 
 @verbatim{
- > (define bob (recruit++ #:name      'bob
-                          #:age       16
-                          #:height-m  2
-                          #:weight-kg 100))
- > bob
- (recruit "bob" 16 2 100 #f 0 "")
 
- > (set-recruit-age bob 18)
- (recruit "bob" 18 2 100 #f 0 "")
+> (define bob (recruit++ #:name      'bob
+                         #:age       16
+                         #:height-m  2
+                         #:weight-kg 100))
 
- > (recruit++ #:name 'tom)
- ; application: required keyword argument not supplied
- ; procedure: recruit++
- ; required keyword: #:age
+> bob
+(recruit "bob" 18.0 'brown 2 100 25 0)
 
- > (recruit/convert->db bob)
- '#hash((name . "bob")
-        (age . 18.0)
-        (height . 2)
-        (weight . 100)
-        (felonies . 0))
+> (set-recruit-age bob 20)
+(recruit "bob" 20 'brown 2 100 25 0)
 
- > (recruit/convert->alist bob)
- '((age . 18.0) (name . "bob") (felonies . 0) (weight . 100) (height . 2))
- 
- > (recruit/convert->json bob)
- '#hash((name . "bob")
-        (age . 6570.0)
-        (height . 2)
-        (weight . 100)
-        (bmi . 25)
-        (eyes . "brown")
-        (hair . "brown")
-        (shirt . "t-shirt")
-        (vision . "20/20"))
+> (recruit++ #:name 'tom)
+application: required keyword argument not supplied
+  procedure: recruit++
+  required keyword: #:age
+  arguments...:
+   #:name 'tom
+
+> (recruit/convert->db bob)
+'#hash((age . 18.0) (felonies . 0) (height . 2) (name . "bob") (weight . 100))
+
+> (recruit/convert->alist bob)
+'((age . 18.0) (name . "bob") (felonies . 0) (weight . 100) (height . 2))
+
+> (recruit/convert->json bob)
+{"eyes":"brown","age":6570.0,"name":"bob","bmi":25,"vision":"20/20","shirt":"t-shirt","hair":"brown","weight":100,"height":2}
 }
 
 Note about constructors:
