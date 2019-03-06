@@ -323,7 +323,6 @@ Some of these were already mentioned above:
       @item{See the @racket{hash-remap} function in the @racketmodname{handy} module for details on what the @racket{#:to-hash} converter options mean}
     @item{TODO:  Add more complex variations of @racket{#:at-least}, such as:  @racket{#:at-least 1 (person-id (person-name department-id))}}
     @item{TODO:  Add an option to enable easy runtime reflection by storing the elements of the transformer binding into a property at creation time}
-  @item{TODO: add a keyword that will control generation of the functional setters}
   @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket{#:mutable})}
     
 ]
