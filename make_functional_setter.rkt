@@ -11,9 +11,14 @@
 ;;
 ;; Generate 'set-book-title', 'set-book-current-page', and 'set-book-filepath'.
 ;; All of these take two arguments: the 'book' struct to update and the new value.
-;;    (make-functional-setter book title) 
+;;    (make-functional-setter book title)
 ;;    (make-functional-setter book current-page  exact-positive-integer?)
-;;    (make-functional-setter book filepath      path-string?            path->string)
+;;    (make-functional-setter book filepath      path-string?  ~a)
+;;
+;; set-book-title        will accept any value.
+;; set-book-current-page will only accept an exact-positive-integer?
+;; set-book-filepath     will only accept a path-string and will convert it to a string
+;;
 ;;
 ;; Details:
 ;;    set-book-title           accepts any value, regardless of sensibility
@@ -24,14 +29,15 @@
 ;;    (define b (book "Foundation" 297 (build-path "/foo/bar")))
 ;;    b                                                ; (book "Foundation" 297 "/foo/bar")
 ;;    (set-book-title b (hash))                        ; (book (hash) 297 "/foo/bar")
-;;    (set-book-current-page b 99)                     ; (book "Foundation" 99 "/foo/bar") 
+;;    (set-book-current-page b 99)                     ; (book "Foundation" 99 "/foo/bar")
 ;;    (set-book-current-page b 'x)                     ; ERROR!  Contract violation
 ;;    (set-book-filepath b (build-path "/foo"))        ; (book "Foundation" 297 "/foo")
 ;;
 (define-syntax (make-functional-setter stx)
   (syntax-parse stx
     #:literals (make-functional-setter)
-    
+
+
     ; First, grab the name of the struct and the field we're making
     ; this for.  We'll build some stuff here then re-parse instead of
     ; copy/pasting for every pattern match
@@ -56,15 +62,40 @@
 
 ;;----------------------------------------------------------------------
 
+;;     make-functional-updater: macro for generating non-mutating field
+;;     updater functions for a struct
+;;
+;; Define a struct:  (struct book (title current-page filepath) #:transparent)
+;;
+;; Generate 'update-book-title', 'update-book-current-page', and 'update-book-filepath'.
+;; All of these take two arguments: the 'book' struct to update and a
+;; procedure to generate the new value.
+;;    (make-functional-setter book title)
+;;    (make-functional-setter book current-page  exact-positive-integer?)
+;;    (make-functional-setter book filepath      path-string?            ~a)
+;;
+;; Details:
+;;   update-book-title         accepts any value, regardless of sensibility
+;;   update-book-current-page  accepts only exact-positive-integer?s, else contract violation
+;;   update-book-filepath      accepts only path-string?s, converts to string before storing
+;;
+;; Examples:
+;;   (define b (book "Scanners" 297 (build-path "/foo/bar")))
+;;   b                                                   ; (book "Scanners" 297 "/foo/bar")
+;;   (update-book-title b string-upcase)                 ; (book "SCANNERS" 297 "/foo/bar")
+;;   (update-book-current-page b add1 )                  ; (book "Scanners" 298 "/foo/bar")
+;;   (update-book-current-page b ~a)                     ; ERROR!  Contract violation
+;;   (update-book-filepath b (compose car explode-path)) ; (book "Scanners" 297 "/")
+;;
 (define-syntax (make-functional-updater stx)
   (syntax-parse stx
     #:literals (make-functional-updater)
-    
+
     ; First, grab the name of the struct and the field we're making
     ; this for.  We'll build some stuff here then re-parse instead of
     ; copy/pasting for every pattern match
-;    (make-function-updater thing name symbol-string? symbol-string->string)
-    
+    ;    (make-functional-updater thing name symbol-string? symbol-string->string)
+
     [(make-functional-updater type-name field-name ignored ...)
      (with-syntax* ([func-name   (format-id #'type-name "update-~a-~a" #'type-name #'field-name)]
                     [getter      (format-id #'type-name "~a-~a" #'type-name #'field-name)]
