@@ -152,12 +152,17 @@
 
   (define-syntax-class field
     (pattern (~or id:id
-                  [id:id (~optional (~seq field-contract:expr (~optional wrapper:expr)))])
+                  [id:id (~optional (~seq cont:expr (~optional wrap:expr)))])
              #:with required? #'#t
+             #:with field-contract (template (?? cont any/c))
+             #:with wrapper (template (?? wrap identity))
              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
+    
     (pattern [(id:id default-value:expr)
-              (~optional (~seq field-contract:expr (~optional wrapper:expr)))]
+              (~optional (~seq cont:expr (~optional wrap:expr)))]
              #:with required? #'#f
+             #:with field-contract (template (?? cont any/c))
+             #:with wrapper (template (?? wrap identity))
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])))
   ;;
   (define-splicing-syntax-class rule
@@ -223,11 +228,13 @@
           ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
-             ((field.required? (field.id (?? field.field-contract any/c))) ... predicate))
+             ((field.required? (field.id field.field-contract)) ... predicate)             )
 
             (?? (?@ r.result ...))
 
-            (struct-id ((?? field.wrapper identity) field.id) ...))
+            ;            (struct-id ((?? field.wrapper identity) field.id) ...)
+            (struct-id (field.wrapper field.id) ...)            
+            )
           ;
           (?? (?@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
           ;
@@ -235,16 +242,16 @@
             (make-functional-setter (?? make-setters.yes? #t)
                                     struct-id ctor-id predicate
                                     field.id
-                                    (?? field.field-contract any/c)
-                                    (?? field.wrapper identity)
+                                    field.field-contract
+                                    field.wrapper
                                     )
             ...)
           (begin
             (make-functional-updater (?? make-setters.yes? #t)
                                      struct-id ctor-id predicate
                                      field.id
-                                     (?? field.field-contract any/c)
-                                     (?? field.wrapper identity)
+                                     field.field-contract
+                                     field.wrapper
                                      )
             ...
             )
