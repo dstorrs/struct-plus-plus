@@ -9,13 +9,13 @@
 
 @section{Introduction}
 
-@racketmodname{struct-plus-plus} provides extended syntax for creating structs.  It does not support field options (#:auto and #:mutable for individual fields), although those will be added.  Aside from that, it's a drop-in replacement for the normal @racket{struct} form. So long as your struct does not use field options, you can literally just change @racket{struct} to @racket{struct++} and your code will continue to work as before but you will now have a keyword constructor and functional setters for all the fields.
+@racketmodname[struct-plus-plus] provides extended syntax for creating structs.  It does not support field options (#:auto and #:mutable for individual fields), although those will be added.  Aside from that, it's a drop-in replacement for the normal @racket[struct] form. So long as your struct does not use field options, you can literally just change @racket[struct] to @racket[struct++] and your code will continue to work as before but you will now have a keyword constructor and functional setters for all the fields.
 
-@racketmodname{struct-plus-plus} offers the following benefits over normal @racket{struct}:
+@racketmodname[struct-plus-plus] offers the following benefits over normal @racket[struct]:
 
 @itemlist[
           @item{keyword constructor}
-          @item{functional setter for each field}
+          @item{(optional) functional setter for each field}
           @item{(optional) distinct defaults for individual fields}
           @item{(optional) contracts for each field}
           @item{(optional) wrapper functions for each field}
@@ -109,7 +109,7 @@ application: required keyword argument not supplied
 
 Note about constructors:
 
-There are two constructors for the @racket{recruit} datatype: @racket{recruit} and @racket{recruit++}.  @racket{struct++} will generate both of these while Racket's builtin @racket{struct} generates only @racket{recruit}. Only @racket{recruit++} has keywords, contracts, etc.  Using the default constructor will allow you to create structures that are invalid under the field contracts. See below:
+There are two constructors for the @racket[recruit] datatype: @racket[recruit] and @racket[recruit++].  @racket[struct++] will generate both of these while Racket's builtin @racket[struct] generates only @racket[recruit]. Only @racket[recruit++] has keywords, contracts, etc.  Using the default constructor will allow you to create structures that are invalid under the field contracts. See below:
 
 @verbatim{
  > (recruit 'tom -3 99 10000 0.2 -27 'note)
@@ -205,11 +205,11 @@ Note that supertypes are not supported as of this writing, nor are field-specifi
 
 @section{Setters and Updaters}
       
-When @racket{#:make-setters?} is missing or has the value #t, it will generate a functional setter and updater for each field. When it is defined and has the value #f the setters and updaters will not be generated.
+When @racket[#:make-setters?] is missing or has the value #t, it will generate a functional setter and updater for each field. When it is defined and has the value #f the setters and updaters will not be generated.
 
-Given a struct of type @racket{recruit} with a field @racket{age}, the name of the setter will be @racket{set-recruit-age} and the updater will be @racket{update-recruit-age}.  Setters receive a value, updaters receive a one-argument function that receives the current value and returns the new value.
+Given a struct of type @racket[recruit] with a field @racket[age], the name of the setter will be @racket[set-recruit-age] and the updater will be @racket[update-recruit-age].  Setters receive a value, updaters receive a one-argument function that receives the current value and returns the new value.
 
-The setters and updaters are not exported.  You will need to put them in the @racket{provide} line manually.
+The setters and updaters are not exported.  You will need to put them in the @racket[provide] line manually.
 
 @verbatim{
           (struct++ person (name))
@@ -290,7 +290,7 @@ Nope!  You cannot invalidate the structure by way of the functional setters/upda
 
 @section{Converters}
 
-When marshalling a struct for writing to a database, a file, etc, it is useful to turn it into different data structure, usually but not always a hash.  Converters will change the struct into a hash, then pass the hash to the @racket{hash-remap} function in @racketmodname{handy}, allowing you to return anything you want.  See the handy/hash docs for details, but a quick summary:
+When marshalling a struct for writing to a database, a file, etc, it is useful to turn it into a different data structure, usually but not always a hash.  Converters will change the struct into a hash, then pass the hash to the @racket[hash-remap] function in @racketmodname[handy], allowing you to return anything you want.  See the handy/hash docs for details, but a quick summary:
 
 @itemlist[
           @item{#:remove <list> : delete the keys in the list from the hash}
@@ -298,14 +298,14 @@ When marshalling a struct for writing to a database, a file, etc, it is useful t
           @item{#:add <hash> : add one or more keys to the hash, die if they were already there}
           @item{#:rename <hash> : change the names of one or more keys}
           @item{#:default <hash> : if a key is there, leave it alone.  If not, add it}
-          @item{value-is-default? : change the behavior of #:default so that it sets the value of missing keys or keys that match a specified predicate}
-          @item{action-order : specify in what order to apply the above options}
-          @item{post : run the resulting hash through a function that returns anything you want}
+          @item{#:value-is-default? : change the behavior of #:default so that it sets the value of missing keys or keys that match a specified predicate}
+          @item{#:action-order : specify in what order to apply the above options}
+          @item{#:post : run the resulting hash through a function that returns anything you want}
           ]
 
-Note that @racket{#:overwrite} provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
+Note that @racket[#:overwrite] provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
 
-Converter functions are named @racket{<struct-name>/convert-><purpose>}, where 'purpose' is the name given to the conversion specification.  For example:
+Converter functions are named @racket[<struct-name>/convert-><purpose>], where 'purpose' is the name given to the conversion specification.  For example:
 
 @verbatim{
 > (struct++ person (name age)
@@ -335,7 +335,7 @@ Some of these were already mentioned above:
     @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
     @item{TODO:  Add an option to enable easy runtime reflection by storing the elements of the transformer binding into a property at creation time}
   @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
-  @item{TODO: add #:convert-from -- takes a hash and turns it into the struct
+  @item{TODO: add #:convert-from -- takes a hash and turns it into the specified struct}
 ]
 
 @section{Thanks}
