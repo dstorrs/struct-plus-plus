@@ -157,7 +157,7 @@
              #:with field-contract (template (?? cont any/c))
              #:with wrapper (template (?? wrap identity))
              #:with ctor-arg #`(#,(syntax->keyword #'id) id))
-    
+
     (pattern [(id:id default-value:expr)
               (~optional (~seq cont:expr (~optional wrap:expr)))]
              #:with required? #'#f
@@ -168,41 +168,44 @@
   (define-splicing-syntax-class rule
     (pattern
      (~seq #:rule (rule-name:str (~seq #:transform target (var:id ...) [code:expr ...+])))
-     #:with result (template (set! target ((lambda (var ...) code ...) var ...))))
+     #:with result (template (thunk (set! target ((lambda (var ...) code ...) var ...)))))
 
     (pattern
      (~seq #:rule (rule-name:str (~seq #:check (var:id ...) [code:expr])))
      #:with result (template
-                    ((lambda (var ...)
-                       (when (not code)
-                         (let ([args (flatten (map list
-                                                   (map symbol->string '(var ...))
-                                                   (list var ...)))])
-                           (apply raise-arguments-error
-                                  (string->symbol rule-name)
-                                  "check failed"
-                                  args))))
-                     var ...)))
+                    (thunk
+                     ((lambda (var ...)
+                        (when (not code)
+                          (let ([args (flatten (map list
+                                                    (map symbol->string '(var ...))
+                                                    (list var ...)))])
+                            (apply raise-arguments-error
+                                   (string->symbol rule-name)
+                                   "check failed"
+                                   args))))
+                      var ...))))
     (pattern
      (~seq #:rule
            (rule-name:str (~seq #:at-least
                                 min-ok:exact-positive-integer
                                 (~optional predicate:expr)
                                 (var:id ...))))
-     #:with result (template (let* ([pred (?? predicate (procedure-rename
-                                                         (negate false?)
-                                                         'true?))]
-                                    [num-valid (count pred (list var ...))])
-                               (when (< num-valid min-ok )
-                                 (let ([args (flatten (map list
-                                                           (map symbol->string '(var ...))
-                                                           (list var ...)))])
-                                   (apply raise-arguments-error
-                                          (string->symbol rule-name)
-                                          "too many invalid fields"
-                                          "minimum allowed" min-ok
-                                          "predicate" pred
-                                          args)))))))
+     #:with result (template
+                    (thunk (let* ([pred (?? predicate (procedure-rename
+                                                       (negate false?)
+                                                       'true?))]
+                                  [num-valid (count pred (list var ...))])
+                             (when (< num-valid min-ok )
+                               (let ([args (flatten (map list
+                                                         (map symbol->string '(var ...))
+                                                         (list var ...)))])
+                                 (apply raise-arguments-error
+                                        (string->symbol rule-name)
+                                        "too many invalid fields"
+                                        "minimum allowed" min-ok
+                                        "predicate" pred
+                                        args))))))))
+  
   (define-splicing-syntax-class converter
     (pattern (~seq #:convert-for (name (opt ...+)))))
 
@@ -222,18 +225,19 @@
      (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                     [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
                     [predicate (format-id #'struct-id "~a?" #'struct-id)])
-       (template
+       (quasitemplate
         (begin
-          (struct struct-id (field.id ...) opt ...)
+          (struct struct-id (field.id ...) opt ...
+          )
           ;
           (define/contract (ctor-id ctor-arg ... ...)
             (make-ctor-contract
              ((field.required? (field.id field.field-contract)) ... predicate)             )
 
-            (?? (?@ r.result ...))
+            (?? (?@ (r.result) ...))
 
             ;            (struct-id ((?? field.wrapper identity) field.id) ...)
-            (struct-id (field.wrapper field.id) ...)            
+            (struct-id (field.wrapper field.id) ...)
             )
           ;
           (?? (?@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
