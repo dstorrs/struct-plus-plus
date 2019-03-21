@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 35)
+(expect-n-tests 43)
 
 (when #t
   (test-suite
@@ -111,7 +111,7 @@
    (is (update-book-title b string-upcase)
        (book "TITLE" 188)
        "(update-book-title b string-upcase) works")
-   
+
    (is (update-book-pages b add1)
        (book "title" 189)
        "(update-book-pages b add1) works")
@@ -157,6 +157,7 @@
                             ))
            #px"bmi can be found"
            "need to supply at least two of bmi/height-m/weight-kg")
+
    (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
          [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
          [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
@@ -279,3 +280,95 @@
               (vision . "20/20"))
        "(recruit/convert->json bob) works"
        )))
+
+(when #t
+  (test-suite
+   "reflection"
+
+   ; need to create name/c and then reuse it because
+   ; (equal? (or/c symbol? non-empty-string?) (or/c symbol? non-empty-string?)) => #f
+   ; meaning that when we check the name field it won't compare equal
+   (define name/c (or/c symbol? non-empty-string?))
+   
+   (struct++ person ([name           name/c symbol-string->string]
+                     [age            positive?]
+                     [(height-m #f)  positive?]
+                     [(weight-kg #f) positive?]
+                     [(bmi #f)       positive?]
+                     [(felonies 0)   positive-integer?]
+                     [(notes "")]
+                     )
+             (
+              #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
+              #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+              #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
+                                                                            (= 0 felonies))])
+              #:convert-for (db (#:add (hash 'baz "jaz")))
+              #:convert-for (json (#:add (hash 'foo "bar")))
+              )
+             #:transparent
+             )
+
+   (define s (person++ #:name 'tom
+                       #:age 19
+                       #:weight-kg 100
+                       #:bmi 24))
+   (define ref (force (struct++-ref s)))
+   (is-type ref  struct++-info?  "got a struct++-info")
+
+   (define correct (struct++-info person
+                                  person++
+                                  person?
+                                  (list (struct++-field 'name
+                                                        person-name
+                                                        name/c
+                                                        symbol-string->string
+                                                        'no-default-given)
+                                        (struct++-field 'age
+                                                        person-age
+                                                        positive?
+                                                        identity
+                                                        'no-default-given)
+                                        (struct++-field 'height-m
+                                                        person-height-m
+                                                        positive?
+                                                        identity
+                                                        #f)
+                                        (struct++-field 'weight-kg
+                                                        person-weight-kg
+                                                        positive?
+                                                        identity
+                                                        #f)
+                                        (struct++-field 'bmi
+                                                        person-bmi
+                                                        positive?
+                                                        identity
+                                                        #f)
+                                        (struct++-field 'felonies
+                                                        person-felonies
+                                                        positive-integer?
+                                                        identity
+                                                        0)
+                                        (struct++-field 'notes
+                                                        person-notes
+                                                        any/c
+                                                        identity
+                                                        ""))
+                                  (list (struct++-rule "bmi can be found" 'at-least)
+                                        (struct++-rule "ensure height-m" 'transform)
+                                        (struct++-rule "eligible-for-military?" 'check))
+                                  (list person/convert->db  person/convert->json)
+                                  ))
+
+   (parameterize ([test-more-unwrap? #f])
+     (for ([accessor (list struct++-info-base-constructor
+                           struct++-info-constructor
+                           struct++-info-predicate
+                           struct++-info-fields
+                           struct++-info-rules
+                           struct++-info-converters)])
+       (is  (accessor ref)
+            (accessor correct)
+            (format "the ~a element of correct and ref are the same" (object-name accessor))
+            )
+       ))))
