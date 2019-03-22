@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 35)
+(expect-n-tests 45)
 
 (when #t
   (test-suite
@@ -111,7 +111,7 @@
    (is (update-book-title b string-upcase)
        (book "TITLE" 188)
        "(update-book-title b string-upcase) works")
-   
+
    (is (update-book-pages b add1)
        (book "title" 189)
        "(update-book-pages b add1) works")
@@ -157,6 +157,7 @@
                             ))
            #px"bmi can be found"
            "need to supply at least two of bmi/height-m/weight-kg")
+
    (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
          [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
          [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
@@ -279,3 +280,81 @@
               (vision . "20/20"))
        "(recruit/convert->json bob) works"
        )))
+
+(when #t
+  (test-suite
+   "reflection"
+
+   ; need to create name/c and then reuse it because
+   ; (equal? (or/c symbol? non-empty-string?) (or/c symbol? non-empty-string?)) => #f
+   ; meaning that when we check the name field it won't compare equal
+   (define name/c (or/c symbol? non-empty-string?))
+
+   (struct++ person ([name           name/c symbol-string->string]
+                     [age            positive?]
+                     [(height-m #f)  positive?]
+                     [(weight-kg #f) positive?]
+                     [(bmi #f)       positive?]
+                     [(felonies 0)   positive-integer?]
+                     [(notes "")]
+                     )
+             (
+              #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
+              #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+              #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
+                                                                            (= 0 felonies))])
+              #:convert-for (db (#:add (hash 'baz "jaz")))
+              #:convert-for (json (#:add (hash 'foo "bar")))
+              )
+             #:transparent
+             )
+
+   (define s (person++ #:name 'tom
+                       #:age 19
+                       #:weight-kg 100
+                       #:bmi 24))
+   (define ref (force (struct++-ref s)))
+   (is-type ref  struct++-info?  "got a struct++-info")
+
+   (let ()
+     (match-define
+       (struct* struct++-info
+                ([base-constructor base-constructor]
+                 [constructor constructor]
+                 [predicate predicate]
+                 [fields (list (struct* struct++-field ([name fld-names]
+                                                        [accessor accessors]
+                                                        [contract field-contracts]
+                                                        [wrapper wrappers]
+                                                        [default defaults]))
+                               ...)]
+                 [rules (list (struct* struct++-rule ([name rule-names]
+                                                      [type type]))
+                              ...)]
+                 [converters converters]))
+       ref)
+
+     (is (thunk  base-constructor) person "base ctor correct")
+     (is (thunk  constructor) person++ "ctor correct")
+     (is (thunk  predicate) person? "predicate correct")
+     (is fld-names '(name age height-m weight-kg bmi felonies notes) "field names correct")
+     (is accessors (list person-name
+                         person-age
+                         person-height-m
+                         person-weight-kg
+                         person-bmi
+                         person-felonies
+                         person-notes)
+         "accessors are correct")
+     (is field-contracts
+         (list name/c positive? positive? positive? positive? positive-integer? any/c)
+         "contracts are correct")
+
+     (is wrappers
+         (list symbol-string->string identity identity identity identity identity identity)
+         "wrappers are correct")
+     (is defaults
+         (list 'no-default-given 'no-default-given #f #f #f 0 "")
+         "defaults are correct"))
+
+   ))

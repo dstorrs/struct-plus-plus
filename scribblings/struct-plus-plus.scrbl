@@ -22,6 +22,7 @@
           @item{(optional) dependency checking between fields}
           @item{(optional) declarative syntax for business logic rules}
           @item{(optional) declarative syntax for converting the structures to arbitrary other values}
+	  @item{(optional) easy run-time introspection}
           ]
 
 @section{Design Goal}
@@ -107,13 +108,13 @@ application: required keyword argument not supplied
 {"eyes":"brown","age":6570.0,"name":"bob","bmi":25,"vision":"20/20","shirt":"t-shirt","hair":"brown","weight":100,"height":2}
 }
 
-Note about constructors:
+@subsection{Constructors: @racket[recruit] vs @racket[recruit++]}
 
 There are two constructors for the @racket[recruit] datatype: @racket[recruit] and @racket[recruit++].  @racket[struct++] will generate both of these while Racket's builtin @racket[struct] generates only @racket[recruit]. Only @racket[recruit++] has keywords, contracts, etc.  Using the default constructor will allow you to create structures that are invalid under the field contracts. See below:
 
 @verbatim{
- > (recruit 'tom -3 99 10000 0.2 -27 'note)
- (recruit 'tom -3 99 10000 0.2 -27 'note)
+ > (recruit 'tom -3 99 10000 0.2 -27 'note) ; VIOLATES FIELD CONTRACTS!
+ (recruit 'tom -3 99 10000 0.2 -27 'note)  
 
  > (recruit++ #:name 'tom #:age -3 #:height-m 99 #:weight-kg 10000 #:bmi 0.2 #:felonies -27 #:notes 'note)
  recruit++: contract violation
@@ -175,7 +176,7 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
    code      : <expression> 
 
-   converter :    #:to-hash (convert-name (hash-option ...+))
+   converter :    #:convert-for (convert-name (hash-option ...+))
 
    convert-name : id
    
@@ -205,7 +206,7 @@ Note that supertypes are not supported as of this writing, nor are field-specifi
 
 @section{Setters and Updaters}
       
-When @racket[#:make-setters?] is missing or has the value #t, it will generate a functional setter and updater for each field. When it is defined and has the value #f the setters and updaters will not be generated.
+When @racket[#:make-setters?] is missing or has the value #t, @racket[struct++] will generate a functional setter and updater for each field. When @racket[#:make-setters?]  is defined and has the value #f the setters and updaters will not be generated.
 
 Given a struct of type @racket[recruit] with a field @racket[age], the name of the setter will be @racket[set-recruit-age] and the updater will be @racket[update-recruit-age].  Setters receive a value, updaters receive a one-argument function that receives the current value and returns the new value.
 
@@ -319,7 +320,31 @@ Converter functions are named @racket[<struct-name>/convert-><purpose>], where '
 {"age":18,"name":"bob","created-at":1551904700}
 }
 
-		  
+@section{Reflection}
+
+@verbatim{
+> (struct++ person ([name (or/c symbol? string?) ~a]
+  	    	    [(age 18) number?]
+		    eyes)
+                   (#:rule ("upcase name" #:transform (name) [(string-upcase name)])
+		    #:rule ("at least 1"  #:at-least 1 (name age))
+		    #:rule ("age >= 18"   #:check (age) [(>= age 18)])
+		    #:convert-for (db (#:add (hash 'time (current-seconds)))))
+		   #:transparent)
+> (define bob (person++ #:name 'bob #:age 20))
+> (force (struct++-ref bob))
+(struct++-info person
+	       person++
+	       person?
+	       (list (struct++-field 'name person-name (or/c symbol? string?) ~a 'no-default-given)
+	       	     (struct++-field 'age person-age number? identity 18)
+	       	     (struct++-field 'eyes person-eyes any/c identity 'no-default-given))
+	       (list (struct++-rule "upcase name" 'transform)
+	       	     (struct++-rule "at least 1"  'at-least)
+	       	     (struct++-rule "age >= 18"   'check))
+	       (list person/convert->db))
+}
+
 @section{Warnings, Notes, and TODOs}
 
 Some of these were already mentioned above:
@@ -333,9 +358,8 @@ Some of these were already mentioned above:
       @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
       @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
     @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
-    @item{TODO:  Add an option to enable easy runtime reflection by storing the elements of the transformer binding into a property at creation time}
   @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
-  @item{TODO: add #:convert-from -- takes a hash and turns it into the specified struct}
+  @item{TODO: add #:convert-from -- takes a hash and turns it into the specified struct, with appropriate pre-processing by way of hash->struct/kw and hash-remap}
 ]
 
 @section{Thanks}
