@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 43)
+(expect-n-tests 45)
 
 (when #t
   (test-suite
@@ -289,7 +289,7 @@
    ; (equal? (or/c symbol? non-empty-string?) (or/c symbol? non-empty-string?)) => #f
    ; meaning that when we check the name field it won't compare equal
    (define name/c (or/c symbol? non-empty-string?))
-   
+
    (struct++ person ([name           name/c symbol-string->string]
                      [age            positive?]
                      [(height-m #f)  positive?]
@@ -316,59 +316,45 @@
    (define ref (force (struct++-ref s)))
    (is-type ref  struct++-info?  "got a struct++-info")
 
-   (define correct (struct++-info person
-                                  person++
-                                  person?
-                                  (list (struct++-field 'name
-                                                        person-name
-                                                        name/c
-                                                        symbol-string->string
-                                                        'no-default-given)
-                                        (struct++-field 'age
-                                                        person-age
-                                                        positive?
-                                                        identity
-                                                        'no-default-given)
-                                        (struct++-field 'height-m
-                                                        person-height-m
-                                                        positive?
-                                                        identity
-                                                        #f)
-                                        (struct++-field 'weight-kg
-                                                        person-weight-kg
-                                                        positive?
-                                                        identity
-                                                        #f)
-                                        (struct++-field 'bmi
-                                                        person-bmi
-                                                        positive?
-                                                        identity
-                                                        #f)
-                                        (struct++-field 'felonies
-                                                        person-felonies
-                                                        positive-integer?
-                                                        identity
-                                                        0)
-                                        (struct++-field 'notes
-                                                        person-notes
-                                                        any/c
-                                                        identity
-                                                        ""))
-                                  (list (struct++-rule "bmi can be found" 'at-least)
-                                        (struct++-rule "ensure height-m" 'transform)
-                                        (struct++-rule "eligible-for-military?" 'check))
-                                  (list person/convert->db  person/convert->json)
-                                  ))
+   (let ()
+     (match-define
+       (struct* struct++-info
+                ([base-constructor base-constructor]
+                 [constructor constructor]
+                 [predicate predicate]
+                 [fields (list (struct* struct++-field ([name fld-names]
+                                                        [accessor accessors]
+                                                        [contract field-contracts]
+                                                        [wrapper wrappers]
+                                                        [default defaults]))
+                               ...)]
+                 [rules (list (struct* struct++-rule ([name rule-names]
+                                                      [type type]))
+                              ...)]
+                 [converters converters]))
+       ref)
 
-   (parameterize ([test-more-unwrap? #f])
-     (for ([accessor (list struct++-info-base-constructor
-                           struct++-info-constructor
-                           struct++-info-predicate
-                           struct++-info-fields
-                           struct++-info-rules
-                           struct++-info-converters)])
-       (is  (accessor ref)
-            (accessor correct)
-            (format "the ~a element of correct and ref are the same" (object-name accessor))
-            )
-       ))))
+     (is (thunk  base-constructor) person "base ctor correct")
+     (is (thunk  constructor) person++ "ctor correct")
+     (is (thunk  predicate) person? "predicate correct")
+     (is fld-names '(name age height-m weight-kg bmi felonies notes) "field names correct")
+     (is accessors (list person-name
+                         person-age
+                         person-height-m
+                         person-weight-kg
+                         person-bmi
+                         person-felonies
+                         person-notes)
+         "accessors are correct")
+     (is field-contracts
+         (list name/c positive? positive? positive? positive? positive-integer? any/c)
+         "contracts are correct")
+
+     (is wrappers
+         (list symbol-string->string identity identity identity identity identity identity)
+         "wrappers are correct")
+     (is defaults
+         (list 'no-default-given 'no-default-given #f #f #f 0 "")
+         "defaults are correct"))
+
+   ))

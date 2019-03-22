@@ -264,23 +264,26 @@
             (struct struct-id (field.id ...) opt ...
               #:property prop:struct++
               (delay
-                (struct++-info struct-id ; base struct constructor
-                               ctor-id   ; struct-plus-plus constructor
-                               predicate
-                               ; fields
-                               (list (struct++-field 'field.id
-                                                     (make-accessor-name struct-id
-                                                                         field.id)
-                                                     field.field-contract
-                                                     field.wrapper
-                                                     field.def)
+                (struct++-info++ #:base-constructor struct-id ; base struct constructor
+                                 #:constructor ctor-id   ; struct-plus-plus constructor
+                                 #:predicate predicate
+                                 #:fields (list (struct++-field++
+                                                 #:name 'field.id
+                                                 #:accessor (make-accessor-name struct-id
+                                                                                field.id)
+                                                 #:contract field.field-contract
+                                                 #:wrapper field.wrapper
+                                                 #:default field.def)
                                      ...)
-                               ; rules
-                               (list (~? (~@ (struct++-rule r.rule-name r.type) ...)))
-                               ; converter functions (e.g. 'person/convert->json')
-                               (list
-                                (~? (~@ (make-converter-function-name struct-id c.name)
-                                        ...))))))
+                                 #:rules
+                                 (list (~? (~@ (struct++-rule++
+                                                #:name r.rule-name
+                                                #:type r.type)
+                                               ...)))
+                                 #:converters
+                                 (list
+                                  (~? (~@ (make-converter-function-name struct-id c.name)
+                                          ...))))))
             ;
             (define/contract (ctor-id ctor-arg ... ...)
               (make-ctor-contract
