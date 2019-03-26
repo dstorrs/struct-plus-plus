@@ -15,6 +15,7 @@
          racket/bool
          racket/contract/base
          racket/contract/region
+         (only-in racket/format ~a)
          racket/function
          (only-in racket/list count flatten)
          racket/promise
@@ -206,7 +207,7 @@
                                                    (map symbol->string '(var ...))
                                                    (list var ...)))])
                            (apply raise-arguments-error
-                                  (string->symbol rule-name)
+                                  (string->symbol (format "failed in struct++ rule named '~a' (type: check)" rule-name))
                                   "check failed"
                                   args))))
                      var ...)))
@@ -227,7 +228,7 @@
                                                   (map symbol->string '(var ...))
                                                   (list var ...)))])
                           (apply raise-arguments-error
-                                 (string->symbol rule-name)
+                                 (string->symbol (format "failed in struct++ rule named '~a' (type: at-least)" rule-name))
                                  "too many invalid fields"
                                  "minimum allowed" min-ok
                                  "predicate" pred
