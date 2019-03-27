@@ -176,7 +176,7 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
    code      : <expression> 
 
-   converter :    #:convert-for (convert-name (hash-option ...+))
+   converter :    #:convert-for (convert-name (hash-option ...))
 
    convert-name : id
    

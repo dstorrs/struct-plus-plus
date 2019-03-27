@@ -235,7 +235,7 @@
                                  args)))))))
 
   (define-splicing-syntax-class converter
-    (pattern (~seq #:convert-for (name (opt ...+)))))
+    (pattern (~seq #:convert-for (name (opt ...)))))
 
   (define-splicing-syntax-class make-setters-clause
     (pattern (~seq #:make-setters? yes?:boolean)))

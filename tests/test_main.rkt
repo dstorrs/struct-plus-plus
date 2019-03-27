@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 45)
+(expect-n-tests 46)
 
 (when #t
   (test-suite
@@ -195,7 +195,8 @@
    (struct++ person
              (name age height eyes)
              (#:convert-for (db (#:remove '(height eyes) #:add (hash 'race 'unknown)))
-              #:convert-for (json (#:remove '(name height) #:add (hash 'location "unknown")))))
+              #:convert-for (json (#:remove '(name height) #:add (hash 'location "unknown")))
+              #:convert-for (hash ())))
 
    (let ([sample (person 'bob 19 7 'brown)])
      (is (person/convert->db sample)
@@ -204,9 +205,12 @@
 
      (is (person/convert->json sample)
          (hash 'age 19 'eyes 'brown 'location "unknown")
-         "successfully converted to hash for JSON"))
-   )
-  )
+         "successfully converted to hash for JSON")
+
+     (is (person/convert->hash sample)
+         (hash 'name 'bob 'age 19 'height 7 'eyes 'brown)
+         "It's okay to have a converter with an empty set of transforms; it will return a hash")
+     )))
 
 (when #t
   (test-suite
