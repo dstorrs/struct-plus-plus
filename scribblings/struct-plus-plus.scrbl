@@ -9,7 +9,7 @@
 
 @section{Introduction}
 
-@racketmodname[struct-plus-plus] provides extended syntax for creating structs.  It does not support field options (#:auto and #:mutable for individual fields), although those will be added.  Aside from that, it's a drop-in replacement for the normal @racket[struct] form. So long as your struct does not use field options, you can literally just change @racket[struct] to @racket[struct++] and your code will continue to work as before but you will now have a keyword constructor and functional setters for all the fields.
+@racketmodname[struct-plus-plus] provides extended syntax for creating structs.  It does not support supertypes or field options (@racket[#:auto] and @racket[#:mutable]).  Aside from that, it's a drop-in replacement for the normal @racket[struct] form. So long as your struct does not have a supertype or a field marked @racket[#:auto] or @racket[#:mutable], you can literally just change @racket[struct] to @racket[struct++] and your code will continue to work as before but you will now have a keyword constructor and functional setters for all the fields.
 
 @racketmodname[struct-plus-plus] offers the following benefits over normal @racket[struct]:
 
@@ -22,7 +22,7 @@
           @item{(optional) dependency checking between fields}
           @item{(optional) declarative syntax for business logic rules}
           @item{(optional) declarative syntax for converting the structures to arbitrary other values}
-	  @item{(optional) easy run-time introspection}
+	  @item{(optional) easy run-time introspection and reflection}
           ]
 
 @section{Design Goal}
@@ -356,11 +356,21 @@ Some of these were already mentioned above:
   @item{Rules are processed in order. Changes made by a @racket[#:transform] rule will be seen by later rules}
     @item{None of the generated functions (@racket[struct-name++], @racket[set-struct-name-field-name], etc) are exported.  You'll need to list them in your @racket[provide] line manually}
       @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
-      @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
+		      @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
+
     @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
   @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
   @item{TODO: add #:convert-from -- takes a hash and turns it into the specified struct, with appropriate pre-processing by way of hash->struct/kw and hash-remap}
-]
+		      ]
+
+@subsection{Field options and why they aren't available}
+
+Field options (@racket[#:auto] and @racket[#:mutable]) are not supported and there are no plans to support them in the future.
+
+Regarding @racket[#:auto]:  The per-field default syntax that @racket[struct++] provides is strictly superior to @racket[#:auto], so there is no need to provide it.  Furthermore, auto fields come with the restriction that they cannot have values provided at construction time -- it's not a default, it's a "here's this field that is automagically generated and you can't do anything but read it".  This would substantially complicate generating the keyword constructor, since the macro would need to locate all fields that were auto and then exclude them from the constructor.  Furthermore, it wouldn't be sensible for an auto field to have a default value, contract, wrapper, or functional setter, so there would need to be an entirely separate field syntax and then many additional checks.  The marginal value of supporting @racket[#:auto] far outweighs the costs.
+
+Regarding @racket[#:mutable]: Supporting this one would be straightforward, so not supporting it is a deliberate choice.  The functional setters that @racket[struct++] provides should satisfy nearly all the same use cases as the @racket[#:mutable] field option, and it's still possible to use the struct-level #:mutable option if you really want to mutate.  Mutation should be avoided in general, so leaving out the @racket[#:mutable] field option seems like a good decision.
+
 
 @section{Thanks}
 
