@@ -325,14 +325,14 @@ Converter functions are named @racket[<struct-name>/convert-><purpose>], where '
 All struct++ types support reflection.  There is a structure property, 'prop:struct++', which contains a promise (via @racket[delay]) which contains a struct++-info struct containing relevant metadata.  Relevant struct definitions:
 
 @verbatim{
-(struct++ person ([name (or/c symbol? string?) ~a]
-[(age 18) number?]
-eyes)
-(#:rule ("name ok" #:check (name) [(> (string-length name) 3)])
-#:rule ("is >= teen" #:check (age) [(>= age 13)])
-#:convert-for (db (#:add (hash 'STRUCT-TYPE 'person)))
-)
-#:transparent)
+  (struct++ person ([name (or/c symbol? string?) ~a]
+                    [(age 18) number?]
+                    [eyes])
+                   (#:rule ("name ok" #:check (name) [(> (string-length name) 3)])
+                    #:rule ("is >= teen" #:check (age) [(>= age 13)])
+                    #:convert-for (db (#:add (hash 'STRUCT-TYPE 'person)))
+                   )
+                  #:transparent)
 
 
 ; Declarations for the various types used in reflection:
