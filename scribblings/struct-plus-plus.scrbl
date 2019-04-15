@@ -123,35 +123,32 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 @verbatim{
  (struct++ type:id (field ...) spp-options struct-option ...)
 
- field :
- field-id
- | (field-id                   field-contract          )
- | (field-id                   field-contract   wrapper)
- | ([field-id  default-value]                          )
- | ([field-id  default-value]  field-contract          )
- | ([field-id  default-value]  field-contract   wrapper)
+ field :   field-id
+         | (field-id                   field-contract          )
+         | (field-id                   field-contract   wrapper)
+         | ([field-id  default-value]                          )
+         | ([field-id  default-value]  field-contract          )
+         | ([field-id  default-value]  field-contract   wrapper)
 
  field-contract : contract? = any/c
 
  spp-options :
- | (spp-option ...+)
+               | (spp-option ...+)
 
- spp-option  :
- #:make-setters? boolean? = #t
- | rule
- | converter
+ spp-option :   #:make-setters? boolean? = #t
+              | rule
+              | converter
 
- rule :
- #:rule (rule-name #:at-least N maybe-pred (field-id ...+))
- | #:rule (rule-name #:check (field-id ...+) [code])
- | #:rule (rule-name #:transform field-id (field-id ...+) (code ...+))
+ rule :  #:rule (rule-name #:at-least N maybe-pred (field-id ...+))
+       | #:rule (rule-name #:check (field-id ...+) [code])
+       | #:rule (rule-name #:transform field-id (field-id ...+) (code ...+))
 
  rule-name :  string?
 
  N  : exact-positive-integer?
 
  maybe-pred :
- | (-> any/c boolean?) = (negate false?)
+              | (-> any/c boolean?) = (negate false?)
 
  code      : <expression>
 
@@ -159,25 +156,24 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
  convert-name : id
 
- hash-option :
- #:include      (list key ...+)
- | #:remove       (list key ...+)
- | #:overwrite    (hash [key value-generator] ...)
- | #:add          (hash [key value-generator] ...)
- | #:rename       (hash [key value-generator] ...)
- | #:default      (hash [key value-generator] ...)
- | #:post         (-> hash? any) = identity
- | #:action-order (list (or/c 'include 'remove 'overwrite
- 'add 'rename 'default) ...+)
- = '(include remove overwrite add rename default)
+ hash-option :  #:include      (list key ...+)
+              | #:remove       (list key ...+)
+              | #:overwrite    (hash [key value-generator] ...)
+              | #:add          (hash [key value-generator] ...)
+              | #:rename       (hash [key value-generator] ...)
+              | #:default      (hash [key value-generator] ...)
+              | #:post         (-> hash? any) = identity
+              | #:action-order (list (or/c 'include 'remove 'overwrite
+                                      'add 'rename 'default) ...+)
+                                      = '(include remove overwrite add rename default)
 
  key             : any/c
 
  value-generator :   (not/c procedure?)            ; use as-is
- | <procedure of arity != 0,1,3> ; use as-is
- | (-> any/c)                    ; call w/no args
- | (-> any/c any/c)              ; w/current value
- | (-> hash/c any/c any/c any/c) ; w/hash,key,current value
+                   | <procedure of arity != 0,1,3> ; use as-is
+                   | (-> any/c)                    ; call w/no args
+                   | (-> any/c any/c)              ; w/current value
+                   | (-> hash/c any/c any/c any/c) ; w/hash,key,current value
 
  struct-option : As per the 'struct' builtin. (#:transparent, #:guard, etc)
 }
