@@ -137,7 +137,8 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
  spp-option :   #:make-setters? boolean? = #t
               | rule
-              | converter
+              | convert-for
+              | convert-from
 
  rule :  #:rule (rule-name #:at-least N maybe-pred (field-id ...+))
        | #:rule (rule-name #:check (field-id ...+) [code])
@@ -152,10 +153,16 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
  code      : <expression>
 
- converter :    #:convert-for (convert-name (hash-option ...))
+ convert-for :    #:convert-for (convert-name (hash-option ...))
+
+ convert-from :   #:convert-from (convert-name (source-predicate match-clause (field-id ...)))
 
  convert-name : id
 
+ source-predicate : predicate/c
+
+ match-clause : <expression>
+		  
  hash-option :  #:include      (list key ...+)
               | #:remove       (list key ...+)
               | #:overwrite    (hash [key value-generator] ...)
@@ -266,6 +273,8 @@ Nope!  You cannot invalidate the structure by way of the functional setters/upda
 
 @section{Converters}
 
+@subsection{convert-for}
+
 When marshalling a struct for writing to a database, a file, etc, it is useful to turn it into a different data structure, usually but not always a hash.  Converters will change the struct into a hash, then pass the hash to the @racket[hash-remap] function in @racketmodname[handy], allowing you to return anything you want.  See the handy/hash docs for details, but a quick summary:
 
 @itemlist[
@@ -281,7 +290,7 @@ When marshalling a struct for writing to a database, a file, etc, it is useful t
 
 Note that @racket[#:overwrite] provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
 
-Converter functions are named @racket[<struct-name>/convert-><purpose>], where 'purpose' is the name given to the conversion specification.  For example:
+convert-for functions are named @racket[<struct-name>/convert-><purpose>], where 'purpose' is the name given to the conversion specification.  For example:
 
 @examples[
  #:eval eval
@@ -295,6 +304,62 @@ Converter functions are named @racket[<struct-name>/convert-><purpose>], where '
  (person/convert->db (person 'bob 18))
  (person/convert->json (person "bob" 18))
  ]
+
+@subsection{convert-from}
+
+convert-from functions go the opposite direction from convert-for -- they accept an arbitrary value and they turn it into a struct.
+
+convert-from functions are named @racket[<source>-><struct-name>++], where 'source' is the name given to the conversion specification.  For example:
+
+@examples[
+ #:eval eval
+ #:label #f
+ (require struct-plus-plus)
+
+ (struct++ key ([data bytes?]) #:transparent)
+ 
+ (struct++ person
+           ([id exact-positive-integer?]
+            [name non-empty-string?]
+            [(keys '()) list?]
+            )
+	   (#:convert-from (vector (vector?
+                                    (vector id
+                                            (app (compose (curry map key) vector->list) keys)
+                                            name)
+                                    (id keys name)))
+            )
+           #:transparent)
+
+  (vector->person++ (vector 9 (vector #"foo" #"bar") "fred"))
+ ]
+
+Behind the scenes, the #:convert-from specification above is equivalent to the following:
+
+@examples[
+ #:eval eval
+ #:label #f
+
+ (require struct-plus-plus)
+
+ (struct++ key ([data bytes?]) #:transparent)
+ 
+ (struct++ person
+           ([id exact-positive-integer?]
+            [name non-empty-string?]
+            [(keys '()) list?])
+	    #:transparent)
+
+ (define/contract (vector->person++ val)
+   (-> vector? person?)
+   (match val
+     [(vector id
+              (app (compose (curry map key) vector->list) keys)
+              name)
+      (person++ #:id id #:keys keys #:name name)]))
+
+ (vector->person++ (vector 9 (vector #"foo" #"bar") "fred"))
+]
 
 @section{Reflection}
 

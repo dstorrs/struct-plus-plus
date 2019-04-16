@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 46)
+(expect-n-tests 49)
 
 (when #t
   (test-suite
@@ -362,3 +362,39 @@
          "defaults are correct"))
 
    ))
+
+(test-suite
+ "convert-from"
+
+ (struct++ public-key ([data bytes?]) #:transparent)
+
+ (struct++ person
+           ([id exact-positive-integer?]
+            [name non-empty-string?]
+            [(keys '()) list?]
+            )
+           (#:convert-from (vector (vector?
+                                    (vector id
+                                            (app vector->list keys)
+                                            name)
+                                    (id keys name)))
+            #:convert-from (list (list?
+                                  (list id
+                                        (app (compose
+                                              (curry map public-key)
+                                              (curryr apply '()))
+                                             keys)
+                                        (app ~a name)
+                                        )
+                                  (id keys name)))
+            )
+           #:transparent)
+
+ (is (vector->person++ (vector 7 (vector #"foo" #"bar") "bob"))
+     (person 7 "bob" (list  #"foo" #"bar"))
+     @~a{(vector->person++ (vector 7 (vector #"foo" #"bar") "bob")) worked}
+     )
+
+ (is (list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred))
+     (person 7 "fred" (list (public-key #"foo") (public-key #"bar")))
+     @~a{(list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred)) works}))

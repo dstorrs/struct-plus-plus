@@ -12,13 +12,10 @@
                      syntax/parse
                      syntax/parse/class/struct-id
                      syntax/parse/experimental/template)
-         racket/bool
-         racket/contract/base
-         racket/contract/region
+         racket/require
+         (multi-in racket (bool contract/base contract/region function match promise))
          (only-in racket/format ~a)
-         racket/function
          (only-in racket/list count flatten)
-         racket/promise
          "reflection.rkt"
          )
 
@@ -150,6 +147,23 @@
                           wrapper
                           default))]))
 
+  ;;----------------------------------------------------------------------
+
+  (define-template-metafunction (make-convert-from-function stx)
+    (syntax-parse stx
+      [(make-convert-from-function struct-id:id name:id source-predicate:expr
+                                   match-clause:expr (f:field ...))
+       (with-syntax ([func-name (format-id #'struct-id "~a->~a++" #'name #'struct-id)]
+                     [struct-predicate (format-id #'struct-id "~a?" #'struct-id)]
+                     [ctor (format-id #'struct-id "~a++" #'struct-id)]
+                     [((ctor-arg ...) ...) #'(f.ctor-arg ...)])
+         (template
+          (define/contract (func-name val)
+            (-> source-predicate struct-predicate)
+            (match val
+              [match-clause (ctor ctor-arg ... ...)]))))]))
+
+  ;;----------------------------------------------------------------------
 
   (define-template-metafunction (make-ctor-contract stx)
     (define-syntax-class contract-spec
@@ -170,7 +184,6 @@
            (template (->* ((?@ mand-kw mand-contract) ...)
                           ((?@ opt-kw opt-contract) ...)
                           predicate))))]))
-
 
   (define-syntax-class field
     (pattern (~or id:id
@@ -237,6 +250,12 @@
   (define-splicing-syntax-class converter
     (pattern (~seq #:convert-for (name (opt ...)))))
 
+  ; e.g. #:convert-from (db-row (vector? (vector a b c) (a b c)))
+  (define-splicing-syntax-class convert-from-clause
+    (pattern (~seq #:convert-from (name:id (source-predicate:expr
+                                            match-clause:expr
+                                            (f:field ...+))))))
+
   (define-splicing-syntax-class make-setters-clause
     (pattern (~seq #:make-setters? yes?:boolean)))
 
@@ -245,6 +264,7 @@
                (field:field ...)
                (~optional ((~alt (~optional make-setters:make-setters-clause)
                                  c:converter
+                                 cfrom:convert-from-clause
                                  r:rule)
                            ...))
                opt ...
@@ -275,7 +295,7 @@
                                                  #:contract field.field-contract
                                                  #:wrapper field.wrapper
                                                  #:default field.def)
-                                     ...)
+                                                ...)
                                  #:rules
                                  (list (~? (~@ (struct++-rule++
                                                 #:name r.rule-name
@@ -296,6 +316,13 @@
               )
             ;
             (?? (?@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
+            ;
+            (?? (?@ (make-convert-from-function struct-id
+                                                cfrom.name
+                                                cfrom.source-predicate
+                                                cfrom.match-clause
+                                                (cfrom.f ...)) ...))
+
             ;
             (begin
               (make-functional-setter (?? make-setters.yes? #t)
