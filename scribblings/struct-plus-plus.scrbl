@@ -391,8 +391,9 @@ Some of these were already mentioned above:
  @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
 
  @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
+ @item{TODO:  Add more complex variations of @racket[#:transform] that can handle multiple values at once, such as:  @racket[#:transform (height weight bmi) (height weight bmi) [(values (calc-bmi #f weight bmi) (calc-bmi height #f bmi) (calc-bmi height weight #f))]]}
  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
- @item{TODO: add #:convert-from -- takes a hash and turns it into the specified struct, with appropriate pre-processing by way of hash->struct/kw and hash-remap}
+ @item{TODO: add #:convert-from -- takes a value and turns it into the specified struct, with appropriate pre-processing}
  ]
 
 @subsection{Field options and why they aren't available}
@@ -409,7 +410,7 @@ Regarding @racket[#:mutable]: Supporting this one would be straightforward, so n
 The words 'shoulders of giants' apply here.  I would like to offer great thanks to:
 
 @itemlist[
- @item{Greg Hendershott, for his "Fear of Macros" essay}
+ @item{Greg Hendershott, for his @link["http://www.greghendershott.com/fear-of-macros/"]{"Fear of Macros"} essay}
  @item{Alexis King (aka lexi-lambda), for teaching me a lot about macros over email and providing the struct-update module which gave me a lot of inspiration}
  @item{Ryan Culpepper, who was generous enough to sit with me at RacketCon8 and walk me through proper use of syntax classes}
  @item{The members of the community for being so helpful on the racket-users list}]
