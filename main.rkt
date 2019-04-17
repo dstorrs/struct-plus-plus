@@ -1,77 +1,36 @@
 #lang racket/base
 
-(require handy/hash
-         handy/struct
+(require racket/require
+         (multi-in handy (hash struct))
+         (multi-in racket (bool contract/base contract/region function match promise))
+         (only-in racket/list count flatten)
+         "reflection.rkt"
+
          (for-syntax racket/base
-                     (only-in racket/list
-                              append-map
-                              count
-                              flatten
-                              partition)
+                     (only-in racket/list partition)
                      racket/syntax
                      syntax/parse
                      syntax/parse/class/struct-id
                      syntax/parse/experimental/template)
-         racket/require
-         (multi-in racket (bool contract/base contract/region function match promise))
-         (only-in racket/format ~a)
-         (only-in racket/list count flatten)
-         "reflection.rkt"
          )
 
 (provide struct++ struct->hash (all-from-out "reflection.rkt"))
 
-(define-syntax struct->hash
-  (syntax-parser
-    [(_ s:struct-id instance:expr)
-     (template
-      (let* ([name-str (symbol->string  (object-name s.constructor-id))]
-             [field-name (lambda (f)
-                           (string->symbol
-                            (regexp-replace (pregexp (string-append  name-str "-"))
-                                            (symbol->string (object-name f))
-                                            "")))]
-             )
-        (make-immutable-hash (list  (cons  (field-name s.accessor-id)
-                                           (s.accessor-id instance)
-                                           ) ...))))]))
+;;======================================================================
 
 
-;; See scribblings/struct-plus-plus.scrbl for full details.  Cheat sheet:
-;;
-;; (struct++ type:id (field ...) struct-option ...)
-;;
-;;          field =  field-id
-;;                | [field-id                   field-contract               ]
-;;                | [field-id                   field-contract   wrapper]
-;;                | [(field-id  default-value)                               ]
-;;                | [(field-id  default-value)  field-contract               ]
-;;                | [(field-id  default-value)  field-contract   wrapper]
-;;
-;; field-contract = contract?
-;;
-;; struct-option = as per the 'struct' builtin  (e.g. #:transparent, #:guard, etc)
-;;
-;;
-;; Example of declaration with all the bells and whistles:
-;;
-;;   ; Declare a struct
-;;   (struct++ pie (filling [(cook-temp 450) exact-positive-integer? F->C ]))
-;;
-;;   ; Create an instance, set an element, update an element.  Both
-;;   ; set and update are functional changes, not mutators.
-;;   (define p (pie++ #:filling 'berry))   ; the #:cook-temp keyword will default
-;;   (set-pie-filling p 'cherry)
-;;   (update-pie-filling p (lambda (x) 'unknown))
-;;   (set-pie-cook-temp p 'invalid) ; EXCEPTION!  Field requires an exact-positive-integer?
-;;
-
-;;    syntax->keyword was lifted from:
-;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
 (begin-for-syntax
-  (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum)))
 
-(define-syntax (struct++ stx)
+  ; Set up various syntax classes and metafunctions.  struct++ itself
+  ; is defined below this begin-for-syntax
+
+
+  ;;    syntax->keyword was lifted from:
+  ;; http://www.greghendershott.com/2015/07/keyword-structs-revisited.html
+  (define syntax->keyword (compose1 string->keyword symbol->string syntax->datum))
+
+  ;;--------------------------------------------------
+
   (define-template-metafunction (make-functional-setter stx)
     (syntax-parse stx
       [(make-functional-setter #f
@@ -92,6 +51,8 @@
                              (safe-hash-set (struct->hash struct-id instance)
                                             'field-name
                                             (wrapper val))))))]))
+
+  ;;--------------------------------------------------
 
   (define-template-metafunction (make-functional-updater stx )
     (syntax-parse stx
@@ -120,23 +81,31 @@
                                             'field-name
                                             (wrapper (updater (getter instance))))))))]))
 
-  (define-template-metafunction (make-converter-function-name stx)
+  ;;--------------------------------------------------
+
+  (define-template-metafunction (make-convert-for-function-name stx)
     (syntax-parse stx
-      [(make-converter-function-name struct-id purpose)
+      [(make-convert-for-function-name struct-id purpose)
        (format-id #'struct-id "~a/convert->~a" #'struct-id #'purpose)]))
 
-  (define-template-metafunction (make-converter-function stx)
+  ;;--------------------------------------------------
+
+  (define-template-metafunction (make-convert-for-function stx)
     (syntax-parse stx
-      [(make-converter-function  struct-id purpose predicate arg ...)
+      [(make-convert-for-function  struct-id purpose predicate arg ...)
        (template
-        (define/contract ((make-converter-function-name struct-id purpose) instance)
+        (define/contract ((make-convert-for-function-name struct-id purpose) instance)
           (-> predicate any)
           (hash-remap (struct->hash struct-id instance) (~@ arg ...))))]))
+
+  ;;--------------------------------------------------
 
   (define-template-metafunction (make-accessor-name stx)
     (syntax-parse stx
       [(make-accessor-name struct-name field-name)
        (format-id #'struct-name "~a-~a" #'struct-name #'field-name)]))
+
+  ;;--------------------------------------------------
 
   (define-template-metafunction (make-field-struct stx)
     (syntax-parse stx
@@ -147,7 +116,7 @@
                           wrapper
                           default))]))
 
-  ;;----------------------------------------------------------------------
+  ;;--------------------------------------------------
 
   (define-template-metafunction (make-convert-from-function stx)
     (syntax-parse stx
@@ -185,6 +154,8 @@
                           ((?@ opt-kw opt-contract) ...)
                           predicate))))]))
 
+  ;;--------------------------------------------------
+
   (define-syntax-class field
     (pattern (~or id:id
                   [id:id (~optional (~seq cont:expr (~optional wrap:expr)))])
@@ -203,7 +174,9 @@
              #:with def (template  default-value)
              )
     )
-  ;;
+
+  ;;--------------------------------------------------
+
   (define-splicing-syntax-class rule
     (pattern
      (~seq #:rule (rule-name:str (~seq #:transform target (var:id ...) [code:expr ...+])))
@@ -247,6 +220,8 @@
                                  "predicate" pred
                                  args)))))))
 
+  ;;--------------------------------------------------
+
   (define-splicing-syntax-class converter
     (pattern (~seq #:convert-for (name (opt ...)))))
 
@@ -256,9 +231,31 @@
                                             match-clause:expr
                                             (f:field ...+))))))
 
+  ;;--------------------------------------------------
+
   (define-splicing-syntax-class make-setters-clause
     (pattern (~seq #:make-setters? yes?:boolean)))
 
+  )
+
+(define-syntax struct->hash
+  (syntax-parser
+    [(_ s:struct-id instance:expr)
+     (template
+      (let* ([name-str (symbol->string  (object-name s.constructor-id))]
+             [field-name (lambda (f)
+                           (string->symbol
+                            (regexp-replace (pregexp (string-append  name-str "-"))
+                                            (symbol->string (object-name f))
+                                            "")))]
+             )
+        (make-immutable-hash (list  (cons  (field-name s.accessor-id)
+                                           (s.accessor-id instance)
+                                           ) ...))))]))
+
+;;======================================================================
+
+(define-syntax (struct++ stx)
   (syntax-parse stx
     ((struct++ struct-id:id
                (field:field ...)
@@ -289,12 +286,12 @@
                                  #:constructor ctor-id   ; struct-plus-plus constructor
                                  #:predicate predicate
                                  #:fields (list (struct++-field++
-                                                 #:name 'field.id
+                                                 #:name     'field.id
                                                  #:accessor (make-accessor-name struct-id
                                                                                 field.id)
                                                  #:contract field.field-contract
-                                                 #:wrapper field.wrapper
-                                                 #:default field.def)
+                                                 #:wrapper  field.wrapper
+                                                 #:default  field.def)
                                                 ...)
                                  #:rules
                                  (list (~? (~@ (struct++-rule++
@@ -303,7 +300,7 @@
                                                ...)))
                                  #:converters
                                  (list
-                                  (~? (~@ (make-converter-function-name struct-id c.name)
+                                  (~? (~@ (make-convert-for-function-name struct-id c.name)
                                           ...))))))
             ;
             (define/contract (ctor-id ctor-arg ... ...)
@@ -315,7 +312,7 @@
               (struct-id (field.wrapper field.id) ...)
               )
             ;
-            (?? (?@ (make-converter-function struct-id c.name predicate c.opt ...) ...))
+            (?? (?@ (make-convert-for-function struct-id c.name predicate c.opt ...) ...))
             ;
             (?? (?@ (make-convert-from-function struct-id
                                                 cfrom.name
@@ -339,8 +336,6 @@
                                        field.field-contract
                                        field.wrapper
                                        )
-              ...
-              )
-            )))))))
+              ...))))))))
 
 ;;-----------------------------------------------------------------------
