@@ -458,7 +458,6 @@ Some of these were already mentioned above:
  @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
  @item{TODO:  Add more complex variations of @racket[#:transform] that can handle multiple values at once, such as:  @racket[#:transform (height weight bmi) (height weight bmi) [(values (calc-bmi #f weight bmi) (calc-bmi height #f bmi) (calc-bmi height weight #f))]]}
  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
- @item{TODO: add #:convert-from -- takes a value and turns it into the specified struct, with appropriate pre-processing}
  ]
 
 @subsection{Field options and why they aren't available}
