@@ -112,11 +112,11 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
 @examples[
  #:eval eval
- (code:line (recruit 'tom -3 99 10000 0.2 -27 'note)
+ (code:line (recruit 'tom -3 'red 99 10000 0.2 -27)
             (code:comment "VIOLATES FIELD CONTRACTS!"))
-
- (eval:error (recruit++ #:name 'tom #:age -3 #:height-m 99 #:weight-kg 10000 #:bmi 0.2 #:felonies -27 #:notes 'note))
+  (eval:error   (recruit++ #:name 'tom #:age -3 #:eyes 'red #:height-m 99 #:weight-kg 10000 #:bmi 0.2 #:felonies -27))
  ]
+
 
 @section{Syntax}
 
