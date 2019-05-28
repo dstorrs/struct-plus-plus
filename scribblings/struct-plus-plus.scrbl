@@ -136,6 +136,7 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
                | (spp-option ...+)
 
  spp-option :   #:make-setters? boolean? = #t
+              | #:omit-reflection
               | rule
               | convert-for
               | convert-from
@@ -363,8 +364,12 @@ Behind the scenes, the #:convert-from specification above is equivalent to the f
 
 @section{Reflection}
 
-All struct++ types support reflection.  There is a structure property, 'prop:struct++', which contains a promise (via @racket[delay]) which contains a struct++-info struct containing relevant metadata.  Relevant struct definitions:
+By default, all struct++ types support reflection by way of a structure property, 'prop:struct++', which contains a promise (via @racket[delay]) which contains a struct++-info struct containing relevant metadata.  
 
+Use the @racket[#:omit-reflection] keyword to disable this behavior.  You will need to do so if you are including the @racket[#:prefab] struct option.
+
+Relevant struct definitions:
+		
 @examples[
  #:eval eval
  #:label #f
@@ -454,7 +459,7 @@ Some of these were already mentioned above:
  @item{None of the generated functions (@racket[struct-name++], @racket[set-struct-name-field-name], etc) are exported.  You'll need to list them in your @racket[provide] line manually}
  @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
  @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
-
+ @item{If you include the @racket[#:prefab] option then you must also include @racket[#:omit-reflection]} 
  @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
  @item{TODO:  Add more complex variations of @racket[#:transform] that can handle multiple values at once, such as:  @racket[#:transform (height weight bmi) (height weight bmi) [(values (calc-bmi #f weight bmi) (calc-bmi height #f bmi) (calc-bmi height weight #f))]]}
  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}

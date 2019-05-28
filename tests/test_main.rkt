@@ -5,7 +5,7 @@
          handy/struct
          "../main.rkt")
 
-(expect-n-tests 49)
+(expect-n-tests 51)
 
 (when #t
   (test-suite
@@ -360,8 +360,17 @@
      (is defaults
          (list 'no-default-given 'no-default-given #f #f #f 0 "")
          "defaults are correct"))
-
    ))
+
+(test-suite
+ "omit-reflection"
+
+ (struct++ zazzle (x) (#:omit-reflection) #:transparent)
+
+ (throws (thunk  (struct++-ref (zazzle 9)))
+         #px"expected: struct\\+\\+"
+         "#:omit-reflection works"))
+
 
 (test-suite
  "convert-from"

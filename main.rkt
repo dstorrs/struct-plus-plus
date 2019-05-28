@@ -260,6 +260,7 @@
     ((struct++ struct-id:id
                (field:field ...)
                (~optional ((~alt (~optional make-setters:make-setters-clause)
+                                 (~optional (~and  #:omit-reflection omit-reflection))
                                  c:converter
                                  cfrom:convert-from-clause
                                  r:rule)
@@ -271,18 +272,13 @@
        (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
                       [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
                       [predicate (format-id #'struct-id "~a?" #'struct-id)]
-                      [(accessor ...)
-                       (datum->syntax
-                        stx
-                        (map (lambda (f) (format-symbol "~a-~a" #'struct-id f))
-                             field-names))]
-                      )
-         (quasitemplate
-          (begin
-            (struct struct-id (field.id ...) opt ...
-              #:property prop:struct++
-              (delay
-                (struct++-info++ #:base-constructor struct-id ; base struct constructor
+                      [reflectance-data
+                       (if (attribute omit-reflection)
+                           #'()
+                           #'(#:property prop:struct++
+                              (delay
+                                (struct++-info++
+                                 #:base-constructor struct-id ; base struct constructor
                                  #:constructor ctor-id   ; struct-plus-plus constructor
                                  #:predicate predicate
                                  #:fields (list (struct++-field++
@@ -302,6 +298,12 @@
                                  (list
                                   (~? (~@ (make-convert-for-function-name struct-id c.name)
                                           ...))))))
+                           )
+                       ]
+                      )
+         (quasitemplate
+          (begin
+            (struct struct-id (field.id ...) opt ... (~@ . reflectance-data))
             ;
             (define/contract (ctor-id ctor-arg ... ...)
               (make-ctor-contract
