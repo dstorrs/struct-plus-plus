@@ -11,7 +11,7 @@
 
 @section{Introduction}
 
-@racketmodname[struct-plus-plus] provides extended syntax for creating structs.  It does not support supertypes or field options (@racket[#:auto] and @racket[#:mutable]).  Aside from that, it's a drop-in replacement for the normal @racket[struct] form. So long as your struct does not have a supertype or a field marked @racket[#:auto] or @racket[#:mutable], you can literally just change @racket[struct] to @racket[struct++] and your code will continue to work as before but you will now have a keyword constructor and functional setters for all the fields.
+@racketmodname[struct-plus-plus] provides extended syntax for creating structs.  It does not support supertypes or field options (@racket[#:auto] and @racket[#:mutable]).  Aside from that, it's a drop-in replacement for the normal @racket[struct] form. So long as your struct does not have a supertype or a field marked @racket[#:auto] or @racket[#:mutable], you can literally just change @racket[struct] to @racket[struct++] and your code will continue to work as before but you will now have a keyword constructor, functional setters for all fields, and reflection data.
 
 @racketmodname[struct-plus-plus] offers the following benefits over normal @racket[struct]:
 
@@ -24,6 +24,7 @@
  @item{(optional) dependency checking between fields}
  @item{(optional) declarative syntax for business logic rules}
  @item{(optional) declarative syntax for converting the structures to arbitrary other values}
+ @item{(optional) declarative syntax for generating the struct type from other values}
  @item{(optional) easy run-time introspection and reflection}
  ]
 
@@ -480,9 +481,9 @@ The words 'shoulders of giants' apply here.  I would like to offer great thanks 
 
 @itemlist[
  @item{Greg Hendershott, for his @link["http://www.greghendershott.com/fear-of-macros/"]{"Fear of Macros"} essay}
- @item{Alexis King (aka lexi-lambda), for teaching me a lot about macros over email and providing the struct-update module which gave me a lot of inspiration}
+ @item{Alexis King (aka lexi-lambda), for teaching me a lot about macros on the @link["https://www.mail-archive.com/racket-users@googlegroups.com/"]{racket-users} list (especially @link["https://www.mail-archive.com/racket-users@googlegroups.com/msg40201.html"]{this post}) and providing the struct-update module (@link["https://docs.racket-lang.org/struct-update/index.html"]{docs}, @link["https://github.com/lexi-lambda/struct-update/blob/master/struct-update-lib/struct-update/main.rkt"]{code}) which gave me a lot of inspiration}
  @item{Ryan Culpepper, who was generous enough to sit with me at RacketCon8 and walk me through proper use of syntax classes}
- @item{The members of the community for being so helpful on the racket-users list}]
+ @item{The members of the community for being so helpful on the @link["https://www.mail-archive.com/racket-users@googlegroups.com/"]{racket-users} list}]
 
 
 And, as always, to the dev team who produced and maintain Racket.  You guys rule and we wouldn't be here without you.
