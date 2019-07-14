@@ -7,6 +7,26 @@
 
 (expect-n-tests 51)
 
+(test-suite
+ "arity-2 wrappers"
+
+ (struct++ dumb
+           ([db-id exact-positive-integer?]
+            [age exact-positive-integer?
+                 (procedure-rename (λ (val self) (+ val (dumb-db-id self)))
+                                   'add-id-to-age)])
+           (#:omit-reflection)
+           #:transparent)
+
+ (define bob (dumb++ #:db-id 7 #:age 12))
+ (is bob (dumb 7 19) "creation went okay; wrapper ran")
+ (is (set-dumb-db-id bob 111)
+     (dumb 111 130)
+     "setting the id field (normal wrapper) works, and age updates itself correctly")
+ (is (set-dumb-age bob 33)
+     (dumb 7 40)
+     "setting age (arity-2 wrapper) works")
+ )
 (when #t
   (test-suite
    "struct->hash"
@@ -269,7 +289,7 @@
        "(recruit/convert->db bob) works")
 
    (is (recruit/convert->alist bob)
-       '((age . 18.0) (name . "bob") (felonies . 0) (weight . 100) (height . 2))
+       '((age . 18.0) (felonies . 0) (name . "bob") (weight . 100) (height . 2))
        "(recruit/convert->alist bob) works")
 
    (is (recruit/convert->json bob)
@@ -354,9 +374,12 @@
          (list name/c positive? positive? positive? positive? positive-integer? any/c)
          "contracts are correct")
 
-     (is wrappers
-         (list symbol-string->string identity identity identity identity identity identity)
+     ; #<identity> and #<identity> are not equal?, so compare by name
+     (is (map object-name wrappers)
+         (map object-name (list symbol-string->string identity identity
+                                identity identity identity identity))
          "wrappers are correct")
+
      (is defaults
          (list 'no-default-given 'no-default-given #f #f #f 0 "")
          "defaults are correct"))
