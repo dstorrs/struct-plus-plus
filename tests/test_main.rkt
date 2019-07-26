@@ -269,7 +269,7 @@
        "(recruit/convert->db bob) works")
 
    (is (recruit/convert->alist bob)
-       '((age . 18.0) (name . "bob") (felonies . 0) (weight . 100) (height . 2))
+       '((age . 18.0) (felonies . 0) (name . "bob") (weight . 100) (height . 2))
        "(recruit/convert->alist bob) works")
 
    (is (recruit/convert->json bob)

@@ -265,13 +265,12 @@
                                  cfrom:convert-from-clause
                                  r:rule)
                            ...))
-               opt ...
-               )
+               opt ...)
+     #:with ctor-id   (format-id #'struct-id "~a++" #'struct-id)
+     #:with predicate (format-id #'struct-id "~a?" #'struct-id)
      ; A double ... (used below) flattens one level
      (let ([field-names (syntax-e #'(field.id ...))])
-       (with-syntax* ([ctor-id (format-id #'struct-id "~a++" #'struct-id)]
-                      [((ctor-arg ...) ...) #'(field.ctor-arg ...)]
-                      [predicate (format-id #'struct-id "~a?" #'struct-id)]
+       (with-syntax* ([((ctor-arg ...) ...) #'(field.ctor-arg ...)]
                       [reflectance-data
                        (if (attribute omit-reflection)
                            #'()
@@ -297,10 +296,7 @@
                                  #:converters
                                  (list
                                   (~? (~@ (make-convert-for-function-name struct-id c.name)
-                                          ...))))))
-                           )
-                       ]
-                      )
+                                          ...)))))))])
          (quasitemplate
           (begin
             (struct struct-id (field.id ...) opt ... (~@ . reflectance-data))

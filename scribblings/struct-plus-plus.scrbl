@@ -363,6 +363,10 @@ Behind the scenes, the #:convert-from specification above is equivalent to the f
  (vector->person++ (vector 9 (vector #"foo" #"bar") "fred"))
 ]
 
+@section{Wrappers}
+
+All fields have wrappers; either you set one or the wrapper is @racket[identity].  Values go through the wrapper whenever the struct is created or when a setter/updater is called.  The return value of the wrapper is what is actually stored in the struct.
+
 @section{Reflection}
 
 By default, all struct++ types support reflection by way of a structure property, 'prop:struct++', which contains a promise (via @racket[delay]) which contains a struct++-info struct containing relevant metadata.  
