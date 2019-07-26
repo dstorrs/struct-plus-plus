@@ -268,72 +268,73 @@
                opt ...)
      #:with ctor-id   (format-id #'struct-id "~a++" #'struct-id)
      #:with predicate (format-id #'struct-id "~a?" #'struct-id)
+     #:with reflectance-data (if (attribute omit-reflection)
+                                 #'()
+                                 #'(#:property prop:struct++
+                                    (delay
+                                      (struct++-info++
+                                       #:base-constructor struct-id ; base struct constructor
+                                       #:constructor ctor-id   ; struct-plus-plus constructor
+                                       #:predicate predicate
+                                       #:fields (list (struct++-field++
+                                                       #:name     'field.id
+                                                       #:accessor (make-accessor-name
+                                                                   struct-id
+                                                                   field.id)
+                                                       #:contract field.field-contract
+                                                       #:wrapper  field.wrapper
+                                                       #:default  field.def)
+                                                      ...)
+                                       #:rules
+                                       (list (~? (~@ (struct++-rule++
+                                                      #:name r.rule-name
+                                                      #:type r.type)
+                                                     ...)))
+                                       #:converters
+                                       (list
+                                        (~? (~@ (make-convert-for-function-name
+                                                 struct-id
+                                                 c.name)
+                                                ...)))))))
      ; A double ... (used below) flattens one level
-     (let ([field-names (syntax-e #'(field.id ...))])
-       (with-syntax* ([((ctor-arg ...) ...) #'(field.ctor-arg ...)]
-                      [reflectance-data
-                       (if (attribute omit-reflection)
-                           #'()
-                           #'(#:property prop:struct++
-                              (delay
-                                (struct++-info++
-                                 #:base-constructor struct-id ; base struct constructor
-                                 #:constructor ctor-id   ; struct-plus-plus constructor
-                                 #:predicate predicate
-                                 #:fields (list (struct++-field++
-                                                 #:name     'field.id
-                                                 #:accessor (make-accessor-name struct-id
-                                                                                field.id)
-                                                 #:contract field.field-contract
-                                                 #:wrapper  field.wrapper
-                                                 #:default  field.def)
-                                                ...)
-                                 #:rules
-                                 (list (~? (~@ (struct++-rule++
-                                                #:name r.rule-name
-                                                #:type r.type)
-                                               ...)))
-                                 #:converters
-                                 (list
-                                  (~? (~@ (make-convert-for-function-name struct-id c.name)
-                                          ...)))))))])
-         (quasitemplate
+     (with-syntax* ([((ctor-arg ...) ...) #'(field.ctor-arg ...)])
+       (quasitemplate
+        (begin
+          (struct struct-id (field.id ...) opt ... (~@ . reflectance-data))
+          ;
+          (define/contract (ctor-id ctor-arg ... ...)
+            (make-ctor-contract
+             ((field.required? (field.id field.field-contract)) ... predicate))
+
+            (?? (?@ r.result ...))
+
+            (struct-id (field.wrapper field.id) ...)
+            )
+          ;
+          (?? (?@ (make-convert-for-function struct-id c.name predicate c.opt ...) ...))
+          ;
+          (?? (?@ (make-convert-from-function struct-id
+                                              cfrom.name
+                                              cfrom.source-predicate
+                                              cfrom.match-clause
+                                              (cfrom.f ...)) ...))
+
+          ;
           (begin
-            (struct struct-id (field.id ...) opt ... (~@ . reflectance-data))
-            ;
-            (define/contract (ctor-id ctor-arg ... ...)
-              (make-ctor-contract
-               ((field.required? (field.id field.field-contract)) ... predicate))
-
-              (?? (?@ r.result ...))
-
-              (struct-id (field.wrapper field.id) ...)
-              )
-            ;
-            (?? (?@ (make-convert-for-function struct-id c.name predicate c.opt ...) ...))
-            ;
-            (?? (?@ (make-convert-from-function struct-id
-                                                cfrom.name
-                                                cfrom.source-predicate
-                                                cfrom.match-clause
-                                                (cfrom.f ...)) ...))
-
-            ;
-            (begin
-              (make-functional-setter (?? make-setters.yes? #t)
-                                      struct-id ctor-id predicate
-                                      field.id
-                                      field.field-contract
-                                      field.wrapper
-                                      )
-              ...)
-            (begin
-              (make-functional-updater (?? make-setters.yes? #t)
-                                       struct-id ctor-id predicate
-                                       field.id
-                                       field.field-contract
-                                       field.wrapper
-                                       )
-              ...))))))))
+            (make-functional-setter (?? make-setters.yes? #t)
+                                    struct-id ctor-id predicate
+                                    field.id
+                                    field.field-contract
+                                    field.wrapper
+                                    )
+            ...)
+          (begin
+            (make-functional-updater (?? make-setters.yes? #t)
+                                     struct-id ctor-id predicate
+                                     field.id
+                                     field.field-contract
+                                     field.wrapper
+                                     )
+            ...)))))))
 
 ;;-----------------------------------------------------------------------
