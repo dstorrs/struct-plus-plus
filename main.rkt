@@ -14,7 +14,10 @@
                      syntax/parse/experimental/template)
          )
 
-(provide struct++ struct->hash (all-from-out "reflection.rkt"))
+(provide struct++ struct->hash (all-from-out "reflection.rkt")
+         struct-plus-plus-use-wrappers)
+
+(define struct-plus-plus-use-wrappers (make-parameter #t))
 
 ;;======================================================================
 
@@ -47,10 +50,21 @@
          (template
           (define/contract (setter-name instance val)
             (-> predicate field-contract predicate)
-            (hash->struct/kw ctor-id
-                             (safe-hash-set (struct->hash struct-id instance)
-                                            'field-name
-                                            (wrapper val))))))]))
+            ; Disable the wrappers.  We'll calculate the wrapper
+            ; values here but we don't want to re-apply them in the
+            ; ctor
+            (parameterize ([struct-plus-plus-use-wrappers #f])
+              (hash->struct/kw ctor-id
+                               (safe-hash-set (struct->hash struct-id instance)
+                                              'field-name
+                                              (if (false? (struct-plus-plus-use-wrappers))
+                                                  val
+                                                  (match (procedure-arity wrapper)
+                                                    [2 (displayln "arity 2")
+                                                       (display "instance: ") (displayln instance)
+                                                       (display "val: ") (displayln val)
+                                                       (wrapper val instance)]
+                                                    [_ (wrapper val)]))))))))]))
 
   ;;--------------------------------------------------
 
@@ -76,10 +90,11 @@
          (template
           (define/contract (updater-name instance updater)
             (-> predicate (-> field-contract field-contract) predicate)
-            (hash->struct/kw ctor-id
-                             (safe-hash-set (struct->hash struct-id instance)
-                                            'field-name
-                                            (wrapper (updater (getter instance))))))))]))
+            (parameterize ([struct-plus-plus-use-wrappers #f])
+              (hash->struct/kw ctor-id
+                               (safe-hash-set (struct->hash struct-id instance)
+                                              'field-name
+                                              (wrapper (updater (getter instance)))))))))]))
 
   ;;--------------------------------------------------
 
@@ -161,7 +176,20 @@
                   [id:id (~optional (~seq cont:expr (~optional wrap:expr)))])
              #:with required? #'#t
              #:with field-contract (template (?? cont any/c))
-             #:with wrapper (template (?? wrap identity))
+             #:with wrapper
+             (template (?? wrap
+                           (procedure-rename
+                            ; If wrappers have arity 2 then the setter will pass them the
+                            ; new value and the existing struct.  Otherwise, the setter
+                            ; only passes them the new value.  This freaks the compiler
+                            ; out, since it can't tell that the default wrapper
+                            ; (`identity`) will never actually be given two arguments, so
+                            ; it throws a lot of warnings.  We'll wrap identity in a
+                            ; variadic function in order to silence the warnings, then
+                            ; rename that trampoline function to `identity` so as not to
+                            ; confuse the user if/when it comes up in error messages.
+                            (λ args (car args))
+                            'identity)))
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with def #''no-default-given)
 
@@ -169,7 +197,9 @@
               (~optional (~seq cont:expr (~optional wrap:expr)))]
              #:with required? #'#f
              #:with field-contract (template (?? cont any/c))
-             #:with wrapper (template (?? wrap identity))
+             #:with wrapper (template (?? wrap (procedure-rename
+                                                (λ args (car args))
+                                                'identity)))
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
              #:with def (template  default-value)
              )
@@ -307,8 +337,16 @@
 
               (?? (?@ r.result ...))
 
-              (struct-id (field.wrapper field.id) ...)
-              )
+              (cond [(false? struct-plus-plus-use-wrappers)
+                     (struct-id field.id ...)
+                     ]
+                    [else
+                     (define dummy (struct-id field.id ...))
+                     (struct-id (match (procedure-arity field.wrapper)
+                                  [2
+                                   (field.wrapper field.id dummy)]
+                                  [_ (field.wrapper field.id)])
+                                ...)]))
             ;
             (?? (?@ (make-convert-for-function struct-id c.name predicate c.opt ...) ...))
             ;

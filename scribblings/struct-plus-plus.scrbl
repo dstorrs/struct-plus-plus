@@ -189,6 +189,47 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 
 Note that supertypes are not supported as of this writing, nor are field-specific keywords (#:mutable and #:auto).
 
+@section{Field contracts}
+
+Every field has a contract.  It's either specified in the @racket[struct++] field declaration or it defaults to @racket[any/c].  When a struct is created, each non-defaulted field will have its value checked against the contract and will raise an exception if it fails.
+
+NOTE:  As with any Racket function, parameters that default will not be checked against their contract.
+
+
+@section{Wrappers}
+
+Every field has a wrapper function; it's either specified in the @racket[struct++] field declaration or it defaults to @racket[identity]. Wrappers transform the value of a field when the struct is created and when the field is set via the functional setters.  
+
+NOTE: There is a little bit of magic associated with wrappers.  If your wrapper function is arity-2 then it will be called as @racket[(wrapper val self)], where @racket[self] is the current struct.  If your wrapper is any other arity then it will be called as @racket[(wrapper val)].
+
+You can prevent wrappers from being called inside the constructor and the setters by setting the @racket[(struct-plus-plus-use-wrappers)] parameter to #f.  This is useful if (e.g.) you're doing metaprogramming off the reflection data and you are going to use the wrapper manually before calling the setter.  
+
+@examples[
+ #:eval eval
+ #:label #f
+ (require struct-plus-plus)
+
+ (struct++ person (name
+                   [age natural-number/c]
+		   [(is-adult? #f) boolean? (lambda (val self) (>= (person-age self) 18))])
+		  #:transparent)
+ (code:line (code:comment "is-adult? #t is not allowed when age is 10. force is-adult? to #f"))
+            (define bob (person++ #:name 'bob #:age 10 #:is-adult? #t))
+ bob
+
+ (code:line (code:comment "age 18+ is an adult, so is-adult? will change with the age")
+             (set-person-age bob 18))	    
+ bob
+
+
+ (code:line (code:comment "wrappers can be disabled")
+   (parameterize ([struct-plus-plus-use-wrappers #f])
+       (set-person-age bob 18)))
+
+]
+
+Everything that can be done with an arity-2 wrapper can be done with a transform rule, but arity2 wrappers allow the transform definition to be kept close to the field definition.
+
 @section{Setters and Updaters}
 
 When @racket[#:make-setters?] is missing or has the value #t, @racket[struct++] will generate a functional setter and updater for each field. When @racket[#:make-setters?]  is defined and has the value #f the setters and updaters will not be generated.
