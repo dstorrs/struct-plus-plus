@@ -31,6 +31,25 @@
 
   ;;--------------------------------------------------
 
+  (define-template-metafunction (make-dotted-accessor stx)
+    (syntax-parse stx
+      [(make-dotted-accessor #f _ _ _ _ _ _)
+       #''()]
+      [(make-dotted-accessor #t
+                             struct-id ctor-id predicate
+                             field-name field-contract wrapper)
+       (with-syntax ([accessor-name (format-id #'struct-id
+                                               "~a-~a"
+                                               #'struct-id
+                                               #'field-name)]
+                     [dotted-accessor-name (format-id #'struct-id
+                                                      "~a.~a"
+                                                      #'struct-id
+                                                      #'field-name)])
+         (template (define dotted-accessor-name accessor-name)))]))
+
+  ;;--------------------------------------------------
+
   (define-template-metafunction (make-functional-setter stx)
     (syntax-parse stx
       [(make-functional-setter #f _ _ _ _ _ _)
@@ -234,6 +253,11 @@
   (define-splicing-syntax-class make-setters-clause
     (pattern (~seq #:make-setters? yes?:boolean)))
 
+  ;;--------------------------------------------------
+
+  (define-splicing-syntax-class make-dotted-accessors-clause
+    (pattern (~seq #:make-dotted-accessors? yes?:boolean)))
+
   )
 
 (define-syntax struct->hash
@@ -258,6 +282,7 @@
     ((struct++ struct-id:id
                (field:field ...)
                (~optional ((~alt (~optional make-setters:make-setters-clause)
+                                 (~optional make-dotted-accessors:make-dotted-accessors-clause)
                                  (~optional (~and  #:omit-reflection omit-reflection))
                                  c:converter
                                  cfrom:convert-from-clause
@@ -318,6 +343,14 @@
                                               (cfrom.f ...)) ...))
 
           ;
+          (begin
+            (make-dotted-accessor (?? make-dotted-accessors.yes? #t)
+                                  struct-id ctor-id predicate
+                                  field.id
+                                  field.field-contract
+                                  field.wrapper
+                                  )
+            ...)
           (begin
             (make-functional-setter (?? make-setters.yes? #t)
                                     struct-id ctor-id predicate

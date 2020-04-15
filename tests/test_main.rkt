@@ -3,9 +3,48 @@
 (require handy/test-more
          handy/utils
          handy/struct
+         handy/try
          "../main.rkt")
 
-(expect-n-tests 51)
+(expect-n-tests 57)
+
+(when #t
+  (test-suite
+   "dotted accessors"
+
+   ;  We need a quick macro so we can tell if something is defined.
+   (define-syntax (if-defined stx)
+     (syntax-case stx ()
+       [(_ id iftrue iffalse)
+        (let ([where (identifier-binding #'id)])
+          (if where #'iftrue #'iffalse))]))
+
+   (begin
+     (struct++ person (name [(age 18) integer?]) #:transparent)
+     (define bob (person++ #:name 'bob #:age 20))
+     (is (person.name bob) 'bob "(person.name bob) returned 'bob as expected when #:make-dotted-accessors? not specified")
+     (is (person.name bob) (person-name bob) "person.name and person-name are the same"))
+
+
+   (begin
+     (struct++ student
+               (name [(age 18) integer?])
+               (#:make-dotted-accessors? #t)
+               #:transparent)
+     (define fred (student++ #:name 'fred #:age 20))
+     (is (student.name fred) 'fred "(student.name fred) returned 'fred as expected when #:make-dotted-accessors? was #t")
+     (is (student.name fred) (student-name fred) "student.name and student-name are the same"))
+
+   (begin
+     (struct++ animal
+               (name [(age 18) integer?])
+               (#:make-dotted-accessors? #f)
+               #:transparent)
+     (is (if-defined animal.name 'defined 'not-defined)
+         'not-defined
+         "when using #:make-dotted-accessors? #f, the accessors were not created"
+         ))
+   ))
 
 (when #t
   (test-suite
