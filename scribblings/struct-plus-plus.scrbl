@@ -70,6 +70,7 @@ Let's make a struct that describes a person who wants to join the military.
             #:rule ("eligible-for-military?" #:check (age felonies bmi) [(and (>= age 18)
                                                                               (= 0 felonies)
                                                                               (<= 25 bmi))])
+            #:make-dotted-accessors? #t
             #:convert-for (db (#:remove '(eyes bmi)
                                #:rename (hash 'height-m 'height 'weight-kg 'weight)))
             #:convert-for (alist (#:remove '(bmi eyes)
@@ -100,6 +101,10 @@ Let's make a struct that describes a person who wants to join the military.
               #:weight-kg 100))
 
  bob
+ (recruit-name bob)
+ (recruit.name bob)
+ (recruit-age bob)
+ (recruit.age bob)
  (set-recruit-age bob 20)
  (recruit/convert->db bob)
  (recruit/convert->alist bob)
@@ -188,6 +193,21 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
 }
 
 Note that supertypes are not supported as of this writing, nor are field-specific keywords (#:mutable and #:auto).
+
+@section{Dotted Accessors}
+
+Racket's default accessor construction can be confusing. For example:
+
+  @racket[(remote-server-send-ch foo)] 
+
+Is that retrieving the value of the @racket[server-send-ch] field in the @racket[remote] struct, or is it retrieving the value of the @racket[send-ch] field in the @racket[remote-server] struct?
+
+Compare the less ambiguous version:
+
+  @racket[(remote-server.send-ch foo)]
+
+When @racket[#:make-dotted-accessors?] is missing or has the value #t, @racket[struct++] will generate a dotted accessor for each field. When @racket[#:make-setters?] is defined and has the value #f the dotted accessors will not be generated.
+
 
 @section{Setters and Updaters}
 
