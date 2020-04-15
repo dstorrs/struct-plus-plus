@@ -33,9 +33,7 @@
 
   (define-template-metafunction (make-functional-setter stx)
     (syntax-parse stx
-      [(make-functional-setter #f
-                               struct-id ctor-id predicate
-                               field-name field-contract wrapper)
+      [(make-functional-setter #f _ _ _ _ _ _)
        #''()]
       [(make-functional-setter #t
                                struct-id ctor-id predicate
