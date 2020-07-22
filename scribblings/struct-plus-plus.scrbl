@@ -141,7 +141,8 @@ There are two constructors for the @racket[recruit] datatype: @racket[recruit] a
  spp-options :
                | (spp-option ...+)
 
- spp-option :   #:make-setters? boolean? = #t
+ spp-option :   #:make-setters?          boolean? = #t
+              | #:make-dotted-accessors? boolean? = #t
               | #:omit-reflection
               | rule
               | convert-for
@@ -206,7 +207,7 @@ Compare the less ambiguous version:
 
   @racket[(remote-server.send-ch foo)]
 
-When @racket[#:make-dotted-accessors?] is missing or has the value #t, @racket[struct++] will generate a dotted accessor for each field. When @racket[#:make-setters?] is defined and has the value #f the dotted accessors will not be generated.
+When @racket[#:make-dotted-accessors?] is missing or has the value #t, @racket[struct++] will generate a dotted accessor for each field. When @racket[#:make-dotted-accessors?] is defined and has the value #f the dotted accessors will not be generated.
 
 
 @section{Setters and Updaters}
