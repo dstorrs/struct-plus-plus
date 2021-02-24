@@ -307,8 +307,8 @@
               (felonies . 0))
        "(recruit/convert->db bob) works")
 
-   (is (recruit/convert->alist bob)
-       '((age . 18.0) (felonies . 0) (name . "bob") (weight . 100) (height . 2))
+   (is (sort (recruit/convert->alist bob) symbol<? #:key car)
+       '((age . 18.0) (felonies . 0) (height . 2) (name . "bob") (weight . 100) )
        "(recruit/convert->alist bob) works")
 
    (is (recruit/convert->json bob)
