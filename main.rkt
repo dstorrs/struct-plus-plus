@@ -278,7 +278,7 @@
 
 (define-syntax (struct++ stx)
   (syntax-parse stx
-    ((struct++ struct-id:id
+    ([struct++ struct-id:id
                (field:field ...)
                (~optional ((~alt (~optional make-setters:make-setters-clause)
                                  (~optional make-dotted-accessors:make-dotted-accessors-clause)
@@ -287,7 +287,7 @@
                                  cfrom:convert-from-clause
                                  (~seq #:rule r:rule-clause))
                            ...))
-               opt ...)
+               opt ...]
      #:with ctor-id   (format-id #'struct-id "~a++" #'struct-id)
      #:with predicate (format-id #'struct-id "~a?" #'struct-id)
      #:with reflectance-data (if (attribute omit-reflection)
