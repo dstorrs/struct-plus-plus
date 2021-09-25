@@ -285,7 +285,8 @@
                                  (~optional (~and  #:omit-reflection omit-reflection))
                                  c:converter
                                  cfrom:convert-from-clause
-                                 (~seq #:rule r:rule-clause))
+                                 (~seq #:rule r:rule-clause)
+                                 (~seq #:rules (rule:rule-clause ...)))
                            ...))
                opt ...]
      #:with ctor-id   (format-id #'struct-id "~a++" #'struct-id)
@@ -308,10 +309,14 @@
                                                        #:default  field.def)
                                                       ...)
                                        #:rules
-                                       (list (~? (~@ (struct++-rule++
-                                                      #:name r.rule-name
-                                                      #:type r.type)
-                                                     ...)))
+                                       (append (list (~? (~@ (struct++-rule++
+                                                              #:name r.rule-name
+                                                              #:type r.type)
+                                                             ...)))
+                                               (list (~? (~@ (struct++-rule++
+                                                              #:name rule.rule-name
+                                                              #:type rule.type)
+                                                             ... ...))))
                                        #:converters
                                        (list
                                         (~? (~@ (make-convert-for-function-name
@@ -329,6 +334,8 @@
              ((field.required? (field.id field.field-contract)) ... predicate))
 
             (?? (?@ r.result ...))
+
+            (?? (?@ rule.result ... ...))
 
             (struct-id (field.wrapper field.id) ...)
             )

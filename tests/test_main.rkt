@@ -162,71 +162,71 @@
    ))
 
 #;(when #t
-  (test-suite
-   "rules"
+    (test-suite
+     "rules"
 
-   (define eye-color/c  (apply or/c '(brown hazel blue green other)))
-   (struct++ person ([name           (or/c symbol? non-empty-string?) symbol-string->string]
-                     [age            positive?]
-                     [eyes           eye-color/c]
-                     [(height-m #f)  positive?]
-                     [(weight-kg #f) positive?]
-                     [(bmi #f)       positive?]
-                     [(felonies 0)   positive-integer?]
-                     [(notes "")]
-                     )
-             (
-              #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
-              #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
-              #:rule ("ensure weight-kg"       #:transform weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
-              #:rule ("ensure bmi"             #:transform bmi    (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
-              #:rule ("lie about age"          #:transform age (age) [(define lie 18.0)
-                                                                      (cond [(>= age 18) age]
-                                                                            [else lie])])
-              #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
-                                                                            (= 0 felonies))])
+     (define eye-color/c  (apply or/c '(brown hazel blue green other)))
+     (struct++ person ([name           (or/c symbol? non-empty-string?) symbol-string->string]
+                       [age            positive?]
+                       [eyes           eye-color/c]
+                       [(height-m #f)  positive?]
+                       [(weight-kg #f) positive?]
+                       [(bmi #f)       positive?]
+                       [(felonies 0)   positive-integer?]
+                       [(notes "")]
+                       )
+               (
+                #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
+                #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+                #:rule ("ensure weight-kg"       #:transform weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+                #:rule ("ensure bmi"             #:transform bmi    (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+                #:rule ("lie about age"          #:transform age (age) [(define lie 18.0)
+                                                                        (cond [(>= age 18) age]
+                                                                              [else lie])])
+                #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
+                                                                              (= 0 felonies))])
 
-              )
-             #:transparent
-             )
-   (throws (thunk (person++ #:name 'bob
-                            #:age 18
-                            #:eyes 'brown
-                            #:felonies 1
-                            #:bmi 20
-                            ))
-           #px"bmi can be found"
-           "need to supply at least two of bmi/height-m/weight-kg")
+                )
+               #:transparent
+               )
+     (throws (thunk (person++ #:name 'bob
+                              #:age 18
+                              #:eyes 'brown
+                              #:felonies 1
+                              #:bmi 20
+                              ))
+             #px"bmi can be found"
+             "need to supply at least two of bmi/height-m/weight-kg")
 
-   (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
-         [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
-         [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
-         )
-     (for ([key '(height-m weight-kg bmi)])
-       (is (hash->struct/kw person++ (safe-hash-remove base key))
-           correct
-           (format fmt key))))
-
-   (throws (thunk (person++ #:name 'bob
-                            #:age 18
-                            #:eyes 'brown
-                            #:felonies 1
-                            #:height-m 2
-                            #:weight-kg 100
-                            ))
-           #px"eligible-for-military"
-           "can't join the army if you've committed a felony"
+     (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
+           [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
+           [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
            )
-   (is (person++ #:name 'bob
-                 #:age 16
-                 #:eyes 'brown
-                 #:height-m 2
-                 #:weight-kg 100
-                 )
-       (person "bob" 18.0 'brown 2 100 25 0 "")
-       "bob lies about his age to join the military"
-       )
-   ))
+       (for ([key '(height-m weight-kg bmi)])
+         (is (hash->struct/kw person++ (safe-hash-remove base key))
+             correct
+             (format fmt key))))
+
+     (throws (thunk (person++ #:name 'bob
+                              #:age 18
+                              #:eyes 'brown
+                              #:felonies 1
+                              #:height-m 2
+                              #:weight-kg 100
+                              ))
+             #px"eligible-for-military"
+             "can't join the army if you've committed a felony"
+             )
+     (is (person++ #:name 'bob
+                   #:age 16
+                   #:eyes 'brown
+                   #:height-m 2
+                   #:weight-kg 100
+                   )
+         (person "bob" 18.0 'brown 2 100 25 0 "")
+         "bob lies about his age to join the military"
+         )
+     ))
 
 (when #t
   (test-suite
@@ -450,82 +450,83 @@
 
 
 #;(test-suite
- "#:converters"
- (struct++ house
-           ([street-num             natural-number/c]
-            [owner-surname          (or/c #f string?)]
-            [(description (hash))   (or/c #f hash?)]
-            )
-           (#:converters ([#:from ([hash  hash? (curry hash->struct/kw house++)]
-                                   [json-string non-empty-string?
-                                                (compose1 hash->house++
-                                                          string->jsexpr)]
-                                   )]
-                          [#:to   ([json-string non-empty-string?
-                                                (compose1 jsexpr->string
-                                                          struct->hash)]
-                                   [hash  hash? struct->hash])]))
-           #:transparent)
+   "#:converters"
+   (struct++ house
+             ([street-num             natural-number/c]
+              [owner-surname          (or/c #f string?)]
+              [(description (hash))   (or/c #f hash?)]
+              )
+             (#:converters ([#:from ([hash  hash? (curry hash->struct/kw house++)]
+                                     [json-string non-empty-string?
+                                                  (compose1 hash->house++
+                                                            string->jsexpr)]
+                                     )]
+                            [#:to   ([json-string non-empty-string?
+                                                  (compose1 jsexpr->string
+                                                            struct->hash)]
+                                     [hash  hash? struct->hash])]))
+             #:transparent)
 
- (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
-
-
- (is (if-defined hash->house++ 'defined 'not-defined)
-     'defined
-     "when using #:converters, '#:from hash' correctly produced hash->house++")
-
- (is (if-defined house++->json-string 'defined 'not-defined)
-     'defined
-     "when using #:converters, '#:from hash' correctly produced hash->house++")
-
- (is (if-defined json-string->house++ 'defined 'not-defined)
-     'defined
-     "when using #:converters, '#:from json-string' correctly produced json-string->house++")
-
- (contract-equivalent? (contract-value hash->house++)
-                       (-> hash? house?)
-                       "hash->house++ contract is correct")
-
- (contract-equivalent? (contract-value json-string->house++)
-                       (-> non-empty-string? house?)
-                       "hash->house++ contract is correct")
-
- (contract-equivalent? (contract-value house++->json-string)
-                       (-> house? non-empty-string?)
-                       "hash->house++ contract is correct")
+   (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
 
 
- (define correct-hash
-   (hash 'street-num 7
-         'owner-surname "smith"
-         'description (hash 'color "red")))
+   (is (if-defined hash->house++ 'defined 'not-defined)
+       'defined
+       "when using #:converters, '#:from hash' correctly produced hash->house++")
 
- (define correct-house (house 7 "Smith" (hash 'color "red")))
+   (is (if-defined house++->json-string 'defined 'not-defined)
+       'defined
+       "when using #:converters, '#:from hash' correctly produced hash->house++")
 
- (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+   (is (if-defined json-string->house++ 'defined 'not-defined)
+       'defined
+       "when using #:converters, '#:from json-string' correctly produced json-string->house++")
 
- (is (house++->hash correct-house) correct-hash "house++->hash worked")
+   (contract-equivalent? (contract-value hash->house++)
+                         (-> hash? house?)
+                         "hash->house++ contract is correct")
 
- (is (json-string->house++ (jsexpr->string correct-hash))
-     correct-house
-     "json-string->house++ worked")
- )
+   (contract-equivalent? (contract-value json-string->house++)
+                         (-> non-empty-string? house?)
+                         "hash->house++ contract is correct")
+
+   (contract-equivalent? (contract-value house++->json-string)
+                         (-> house? non-empty-string?)
+                         "hash->house++ contract is correct")
 
 
-#;(test-suite
+   (define correct-hash
+     (hash 'street-num 7
+           'owner-surname "smith"
+           'description (hash 'color "red")))
+
+   (define correct-house (house 7 "Smith" (hash 'color "red")))
+
+   (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+
+   (is (house++->hash correct-house) correct-hash "house++->hash worked")
+
+   (is (json-string->house++ (jsexpr->string correct-hash))
+       correct-house
+       "json-string->house++ worked")
+   )
+
+
+(test-suite
  "#:rules"
 
- (struct++ point (name type age)
-           #:rules (["bmi can be found"  #:at-least 2 (height-m weight-kg bmi)]
-                    ["ensure height, weight, bmi"
-                     #:transform (height-m weight-kg bmi)
-                     (height-m weight-kg bmi)
-                     [(values (or height-m (sqrt (/ weight-kg bmi)))
-                              (or weight-kg (* (expt height-m 2) bmi))
-                              (or bmi (/ 100 (expt height-m 2))))]]
-                    ["ensure surname is titlecase"
-                     #:transform (owner-surname)
-                     (owner-surname)
-                     [(string-titlecase owner-surname)]]
-                    ))
- )
+ (struct++ animal
+           ([name (or/c symbol? non-empty-string?) ~a]
+            [age positive?])
+           (
+            #:rules (["announce name"   #:check (name)        [#t]]
+                     ["have a birthday" #:transform age (age) [(add1 age)]])
+            )
+           #:transparent)
+
+ (is (animal.age (animal++ #:name "fido" #:age 3))
+     4
+     "fido is now 4")
+ (is (animal.age (animal++ #:name "rover" #:age 7))
+     8
+     "rover is 8"))
