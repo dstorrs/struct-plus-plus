@@ -8,16 +8,17 @@
 
 (expect-n-tests 57)
 
+;  We need a quick macro so we can tell if something is defined.
+(define-syntax (if-defined stx)
+  (syntax-case stx ()
+    [(_ id iftrue iffalse)
+     (let ([where (identifier-binding #'id)])
+       (if where #'iftrue #'iffalse))]))
+
+
 (when #t
   (test-suite
    "dotted accessors"
-
-   ;  We need a quick macro so we can tell if something is defined.
-   (define-syntax (if-defined stx)
-     (syntax-case stx ()
-       [(_ id iftrue iffalse)
-        (let ([where (identifier-binding #'id)])
-          (if where #'iftrue #'iffalse))]))
 
    (begin
      (struct++ person (name [(age 18) integer?]) #:transparent)
@@ -160,7 +161,7 @@
            "(update-book-pages b (lambda (x) 'invalid)) threw due to violating field contract")
    ))
 
-(when #t
+#;(when #t
   (test-suite
    "rules"
 
@@ -446,3 +447,85 @@
  (is (list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred))
      (person 7 "fred" (list (public-key #"foo") (public-key #"bar")))
      @~a{(list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred)) works}))
+
+
+#;(test-suite
+ "#:converters"
+ (struct++ house
+           ([street-num             natural-number/c]
+            [owner-surname          (or/c #f string?)]
+            [(description (hash))   (or/c #f hash?)]
+            )
+           (#:converters ([#:from ([hash  hash? (curry hash->struct/kw house++)]
+                                   [json-string non-empty-string?
+                                                (compose1 hash->house++
+                                                          string->jsexpr)]
+                                   )]
+                          [#:to   ([json-string non-empty-string?
+                                                (compose1 jsexpr->string
+                                                          struct->hash)]
+                                   [hash  hash? struct->hash])]))
+           #:transparent)
+
+ (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
+
+
+ (is (if-defined hash->house++ 'defined 'not-defined)
+     'defined
+     "when using #:converters, '#:from hash' correctly produced hash->house++")
+
+ (is (if-defined house++->json-string 'defined 'not-defined)
+     'defined
+     "when using #:converters, '#:from hash' correctly produced hash->house++")
+
+ (is (if-defined json-string->house++ 'defined 'not-defined)
+     'defined
+     "when using #:converters, '#:from json-string' correctly produced json-string->house++")
+
+ (contract-equivalent? (contract-value hash->house++)
+                       (-> hash? house?)
+                       "hash->house++ contract is correct")
+
+ (contract-equivalent? (contract-value json-string->house++)
+                       (-> non-empty-string? house?)
+                       "hash->house++ contract is correct")
+
+ (contract-equivalent? (contract-value house++->json-string)
+                       (-> house? non-empty-string?)
+                       "hash->house++ contract is correct")
+
+
+ (define correct-hash
+   (hash 'street-num 7
+         'owner-surname "smith"
+         'description (hash 'color "red")))
+
+ (define correct-house (house 7 "Smith" (hash 'color "red")))
+
+ (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+
+ (is (house++->hash correct-house) correct-hash "house++->hash worked")
+
+ (is (json-string->house++ (jsexpr->string correct-hash))
+     correct-house
+     "json-string->house++ worked")
+ )
+
+
+#;(test-suite
+ "#:rules"
+
+ (struct++ point (name type age)
+           #:rules (["bmi can be found"  #:at-least 2 (height-m weight-kg bmi)]
+                    ["ensure height, weight, bmi"
+                     #:transform (height-m weight-kg bmi)
+                     (height-m weight-kg bmi)
+                     [(values (or height-m (sqrt (/ weight-kg bmi)))
+                              (or weight-kg (* (expt height-m 2) bmi))
+                              (or bmi (/ 100 (expt height-m 2))))]]
+                    ["ensure surname is titlecase"
+                     #:transform (owner-surname)
+                     (owner-surname)
+                     [(string-titlecase owner-surname)]]
+                    ))
+ )

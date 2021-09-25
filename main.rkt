@@ -194,14 +194,14 @@
 
   ;;--------------------------------------------------
 
-  (define-splicing-syntax-class rule
+  (define-splicing-syntax-class rule-clause
     (pattern
-     (~seq #:rule (rule-name:str (~seq #:transform target (var:id ...) [code:expr ...+])))
+     (~seq (rule-name:str (~seq #:transform target (var:id ...) [code:expr ...+])))
      #:with type #''transform
      #:with result (template (set! target ((lambda (var ...) code ...) var ...))))
 
     (pattern
-     (~seq #:rule (rule-name:str (~seq #:check (var:id ...) [code:expr])))
+     (~seq (rule-name:str (~seq #:check (var:id ...) [code:expr])))
      #:with type #''check
      #:with result (template
                     ((lambda (var ...)
@@ -215,8 +215,7 @@
                                   args))))
                      var ...)))
     (pattern
-     (~seq #:rule
-           (rule-name:str (~seq #:at-least
+     (~seq (rule-name:str (~seq #:at-least
                                 min-ok:exact-positive-integer
                                 (~optional predicate:expr)
                                 (var:id ...))))
@@ -286,7 +285,7 @@
                                  (~optional (~and  #:omit-reflection omit-reflection))
                                  c:converter
                                  cfrom:convert-from-clause
-                                 r:rule)
+                                 (~seq #:rule r:rule-clause))
                            ...))
                opt ...)
      #:with ctor-id   (format-id #'struct-id "~a++" #'struct-id)
