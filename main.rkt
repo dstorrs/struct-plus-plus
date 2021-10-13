@@ -14,7 +14,9 @@
                      syntax/parse/experimental/template)
          )
 
-(provide struct++ struct->hash (all-from-out "reflection.rkt"))
+(provide struct++
+         struct->hash
+         (all-from-out "reflection.rkt"))
 
 ;;======================================================================
 
@@ -375,3 +377,4 @@
             ...)))))))
 
 ;;-----------------------------------------------------------------------
+
