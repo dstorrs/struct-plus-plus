@@ -49,6 +49,6 @@ test.rkt
 compiled/
 node_modules/
 test
-doc/*
+doc/
 scribblings/
 *.sxref
