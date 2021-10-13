@@ -47,18 +47,21 @@ The intent is to move structs from being dumb data repositories into being data 
  #:label #f
  (require json struct-plus-plus)
 
- (code:comment "\n; Keyword constructor and hash conversion")
+ (code:comment "Declare a new struct type")
  (struct++ plant1 (genus) #:transparent)
+
+ (code:comment "\n; create an instance in various ways")
  (code:line (plant1 'Rosa) (code:comment "normal Racket struct usage"))
- (code:line (plant1++ #:genus 'Rosa)  (code:comment "same as above but keyword constructor"))
+ (code:line (plant1++ #:genus 'Rosa)  (code:comment "struct-plus-plus keyword constructor"))
  (code:line (hash->struct++ plant1++ (hash 'genus 'Rosa)) (code:comment "create from hash"))
- (code:comment "\n; Dotted accessors, functional setters and updaters")
+
+ (code:comment "\n; cf dotted accessors, functional setters and updaters")
  (define p1 (plant1++ #:genus 'Rosa))
  (code:line (plant1.genus p1) (code:comment "plant1.genus is equivalent to plant1-genus"))
  (code:line (set-plant1-genus p1 "Helianthus") (code:comment "functional setter"))
  (code:line (update-plant1-genus p1 (lambda (type) (~a type ", subtype 10"))) (code:comment "functional updater"))
- (code:comment "\n")
- (code:comment "Let's enforce data types.  Genus names must be strings")
+
+ (code:comment "\n; Let's enforce data types.  Genus names must be strings")
  (struct++ plant2 ([genus string?]) #:transparent)
  (code:line (plant2 'Rosa) (code:comment "basic Racket constructor will generate a non-compliant instance"))
  (code:comment "The keyword constructor raises an error on non-compliant data")
@@ -68,8 +71,7 @@ The intent is to move structs from being dumb data repositories into being data 
 
  (code:comment "\n; Additionally, let's force scientifically-accurate case onto the genus.")
  (struct++ plant3 ([genus string?])
-   (#:rule ("genus names are required to be lowercase with initial capital"
-    #:transform genus (genus) [(string-titlecase genus)]))
+   (#:rule ("genus names are required to be lowercase with initial capital" #:transform genus (genus) [(string-titlecase genus)]))
    #:transparent)
  (plant3++ #:genus "rosa")
 
@@ -129,13 +131,13 @@ The intent is to move structs from being dumb data repositories into being data 
 
  (define bob
    (recruit++ #:name 'bob
-              #:age 16
+              #:age 16 (code:comment "Bob isn't old enough for the military so he will lie and say he's 18")
               #:height-m 2
               #:weight-kg 100))
 
- (code:comment "Note that Bob's name is now a string, his age was changed, his BMI was caluclated, and his felonies defaulted to 0")
+ (code:comment "Note that Bob's name is now a string, his age was changed, his BMI was calculated, and his felonies defaulted to 0")
  bob
- (code:comment "\n; dotted accessors and the equivalent standard accessors")
+ (code:comment "\n; side-by-side of the dotted accessors and standard accessors to show equivalence")
  (list (recruit.name bob) (recruit-name bob))
  (list (recruit.age bob) (recruit-age bob))
  
