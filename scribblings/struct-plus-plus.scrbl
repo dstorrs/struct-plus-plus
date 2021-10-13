@@ -34,8 +34,6 @@ The intent is to move structs from being dumb data repositories into being data 
 
 @section{Synopsis}
 
-Let's make a struct that describes a person who wants to join the military.
-
 @(define eval
    (call-with-trusted-sandbox-configuration
     (lambda ()
@@ -49,13 +47,45 @@ Let's make a struct that describes a person who wants to join the military.
  #:label #f
  (require json struct-plus-plus)
 
+ (code:comment "\n; Keyword constructor and hash conversion")
+ (struct++ plant1 (genus) #:transparent)
+ (code:line (plant1 'Rosa) (code:comment "normal Racket struct usage"))
+ (code:line (plant1++ #:genus 'Rosa)  (code:comment "same as above but keyword constructor"))
+ (code:line (hash->struct++ plant1++ (hash 'genus 'Rosa)) (code:comment "create from hash"))
+ (code:comment "\n; Dotted accessors, functional setters and updaters")
+ (define p1 (plant1++ #:genus 'Rosa))
+ (code:line (plant1.genus p1) (code:comment "plant1.genus is equivalent to plant1-genus"))
+ (code:line (set-plant1-genus p1 "Helianthus") (code:comment "functional setter"))
+ (code:line (update-plant1-genus p1 (lambda (type) (~a type ", subtype 10"))) (code:comment "functional updater"))
+ (code:comment "\n")
+ (code:comment "Let's enforce data types.  Genus names must be strings")
+ (struct++ plant2 ([genus string?]) #:transparent)
+ (code:line (plant2 'Rosa) (code:comment "basic Racket constructor will generate a non-compliant instance"))
+ (code:comment "The keyword constructor raises an error on non-compliant data")
+ (eval:error (plant2++ #:genus 'Rosa))
+ (plant2++ #:genus "Rosa")
+ (hash->struct++ plant2++ (hash 'genus "Rosa"))
+
+ (code:comment "\n; Additionally, let's force scientifically-accurate case onto the genus.")
+ (struct++ plant3 ([genus string?])
+   (#:rule ("genus names are required to be lowercase with initial capital"
+    #:transform genus (genus) [(string-titlecase genus)]))
+   #:transparent)
+ (plant3++ #:genus "rosa")
+
+ (code:comment "\n; Same as the above but using a wrapper function instead of a transform rule")
+ (struct++ plant3 ([genus string? string-titlecase]) #:transparent)
+ (plant3++ #:genus "rosa")
+
+ (code:comment "\n; Time to go hard.  Let's make a struct that describes a person who wants to join the military, even if that requires lying.")
+
  (define (get-min-age) 18.0)
 
  (struct++ recruit
-           ([name (or/c symbol? non-empty-string?) ~a]
+           ([name (or/c symbol? non-empty-string?) ~a] (code:comment "Accepts either, forces to string")
             [age positive?]
-            [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)]
-            [(height-m #f) (between/c 0 3)]
+            [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)] (code:comment "Defaults to 'brown if not specified")
+            [(height-m #f) (between/c 0 3)]  (code:comment "Defaults to #f which is not a valid value but if it wasn't provided then the transform rules below will auto-calculate it")
             [(weight-kg #f) positive?]
             [(bmi #f) positive?]
             [(felonies 0) natural-number/c])
@@ -70,8 +100,10 @@ Let's make a struct that describes a person who wants to join the military.
             #:rule ("eligible-for-military?" #:check (age felonies bmi) [(and (>= age 18)
                                                                               (= 0 felonies)
                                                                               (<= 25 bmi))])
-            #:make-dotted-accessors? #t
-            #:convert-for (db (#:remove '(eyes bmi)
+            #:make-dotted-accessors? #t (code:comment "This is the default. Use #f to not generate dotted accessors") 
+            #:make-setters? #t (code:comment "This is the default. Use #f to not generate functional setters and updaters") 
+	    (code:comment "create several functions that marshal the struct for different purposes")
+            #:convert-for (db (#:remove '(eyes bmi) (code:comment "Prep the struct for writing to a DB")
                                #:rename (hash 'height-m 'height 'weight-kg 'weight)))
             #:convert-for (alist (#:remove '(bmi eyes)
                                   #:rename (hash 'height-m 'height 'weight-kg 'weight)
@@ -81,17 +113,18 @@ Let's make a struct that describes a person who wants to join the military.
                                  #:rename (hash 'height-m 'height 'weight-kg 'weight)
                                  #:remove '(felonies)
                                  #:add (hash 'vision "20/20")
-                                 #:overwrite (hash 'hair "brown"
-                                                   'eyes symbol->string
-                                                   'shirt (thunk "t-shirt")
-                                                   'age (lambda (age) (* 365 age))
-                                                   'vision (lambda (h key val)
+                                 #:overwrite (hash 'hair "brown"  (code:comment "overwrite value")
+                                                   'shirt (thunk "t-shirt") (code:comment "use the result of the thunk as the value for 'shirt")
+                                                   'eyes symbol->string (code:comment "one-argument function so run the current value through and use the result")
+                                                   'age (lambda (age) (* 365 age)) (code:comment "same, except the function is custom")
+                                                   'vision (lambda (h key val) (code:comment "three-argument function so pass the hash, the key, and the current value and use the result")
                                                              (if (> (hash-ref h 'age) 30)
                                                                  "20/15"
                                                                  val))))))
 
            #:transparent)
 
+ (code:comment "\n; keyword constructor exists and requires several fields")
  (eval:error (recruit++ #:name 'tom))
 
  (define bob
@@ -100,12 +133,13 @@ Let's make a struct that describes a person who wants to join the military.
               #:height-m 2
               #:weight-kg 100))
 
+ (code:comment "Note that Bob's name is now a string, his age was changed, his BMI was caluclated, and his felonies defaulted to 0")
  bob
- (recruit-name bob)
- (recruit.name bob)
- (recruit-age bob)
- (recruit.age bob)
- (set-recruit-age bob 20)
+ (code:comment "\n; dotted accessors and the equivalent standard accessors")
+ (list (recruit.name bob) (recruit-name bob))
+ (list (recruit.age bob) (recruit-age bob))
+ 
+ (code:comment "\n; various conversion functions that marshal to different forms") 
  (recruit/convert->db bob)
  (recruit/convert->alist bob)
  (recruit/convert->json bob)
@@ -190,14 +224,17 @@ Note: Rules can be specified using either multiple @racket[#:rule] clauses or a 
 
 @section{Constructors}
 
-There are two ways to create a @racket[recruit] struct:
+After you have used @racket[(struct++ recruit ...)] to generate a @racket[recruit] type, there are three ways to create an instance of that type:
 
 @itemlist[
 @item{@racket[recruit++]}
+@item{@racket[(hash->struct++ recruit++ h)]}
 @item{@racket[recruit]}
 ]
 
-In most cases the one you want will be @racket[recruit++], the one generated by @racketmodname[struct-plus-plus].  It uses keywords, checks the field contracts, executes business logic as defined in rules, etc.
+In most cases the one you want will be @racket[recruit++].  It uses keywords, checks the field contracts, executes business logic as defined in rules, etc.
+
+The @racket[hash->struct++] function will accept a function and a hash where the keys are symbols matching the name of the fields in a @racket[struct++] declaration.  A new instance of the struct type will be created using the specified function with the hash keys used as keyword arguments.  Assuming you are passing one of the @racketmodname[struct-plus-plus] keyword constructor functions this means that field contracts will be checked, wrappers applied, etc.  
 
 The @racket[recruit] constructor is the standard one that Racket generates from the @racket[(struct ...)] declaration.  Using it will allow you to create structures that are invalid under the field contracts. See below:
 
@@ -207,13 +244,21 @@ The @racket[recruit] constructor is the standard one that Racket generates from 
  (require struct-plus-plus)
 
  (struct++ flower ([genus string?][color symbol?]) #:transparent)
+ (code:comment "\n; struct-plus-plus keyword constructor")
  (flower++ #:genus "Rosa" #:color 'red)
+ (code:comment "\n; convert from a hash via the struct-plus-plus keyword constructor")
+ (hash->struct++  flower++ (hash 'genus "Heliantus" 'color 'yellow))
  
+ (code:comment "\n; keyword constructor chokes on data that violates field contracts")
  (eval:error (flower++ #:genus 184 #:color #f))
+ (code:comment "\n; ditto when used through hash->struct++")
+ (eval:error (hash->struct++  flower++ (hash 'genus 998 'color 17)))
 
- (code:line (flower 184 #f) (code:comment "INVALIDATES FIELD CONSTRAINTS"))
+ (code:comment "\n; constructor function given to `hash->struct++` is assumed to be a keyword function, so don't do this:")
+ (eval:error (hash->struct++  flower (hash 'genus 998 'color 17)))
 
- 
+ (code:comment "\n; default Racket constructor does not check field constraints")
+ (flower 184 #f)  
 ]
 
 @section{Dotted Accessors}
@@ -303,12 +348,12 @@ Note that Bob's name has been changed from a symbol to a string as per Army regu
 @examples[
  #:eval eval
  #:label #f
- (eval:error (set-lying-recruit-felonies bob 3))
+ (eval:error (set-lying-recruit-felonies bob #f))
  ]
 
 Nope!  You cannot invalidate the structure by way of the functional setters/updaters, although you could do it if you marked your struct as #:mutable and then used the standard Racket mutators. (e.g. @racket[set-recruit-felonies!])
 
- There are two separate but equivalent formats for declaring rules:  the @racket[#:rule] keyword followed by a rule clause or the @racket[#:rules] keyword following by a parenthesized sequence of rule clauses.
+ There are two separate but equivalent formats for declaring rules:  the @racket[#:rule] keyword followed by a rule clause or the @racket[#:rules] keyword following by a parenthesized sequence of rule clauses.  It's mostly an aesthetic choice and they can be intermixed.
 
 @examples[
  #:eval eval
@@ -316,15 +361,19 @@ Nope!  You cannot invalidate the structure by way of the functional setters/upda
  
  (struct++ animal
            ([name (or/c symbol? non-empty-string?) ~a]
-            [age positive?])
+            [age integer?])
            (
-            #:rules (["announce name"   #:check (name)        [#t]]
-                     ["have a birthday" #:transform age (age) [(add1 age)]])
+            #:rules (["pointlessly check name" #:check (name)        [#t]]
+	    	     ["have a birthday"        #:transform age (age) [(add1 age)]])
+            #:rule ("name is >= 2 characters " #:check (name) [(>= (string-length (~a name)) 2)])
+	    #:rules (["pointlessly check age"  #:check (age) [#t]])
             )
            #:transparent)
 
- (animal++ #:name 'fido #:age 3) 
+ (animal++ #:name 'fido #:age 0) 
  ]
+
+(NOTE:  Although you *can* intermix @racket[#:rule] and @racket[#:rules], you probably shouldn't, as changes caused by transform rules in a @racket[#:rules] clause are not visible in a later @racket[#:rule] clause.  This is a bug and will be fixed eventually.)
 
 @section{Converters}
 
@@ -514,6 +563,7 @@ Some of these were already mentioned above:
  @item{@racket[#:transform] rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
  @item{@racket[#:check] rules take exactly one expression in their code segment.  If the returned value is true then the rule passed, and if it's @racket[#f] then the rule calls @racket[raise-arguments-error]}
  @item{Rules are processed in order. Changes made by a @racket[#:transform] rule will be seen by later rules}
+@item{TO FIX:  Changes caused by transform rules in a @racket[#:rules] clause are not visible in a later @racket[#:rule] clause.}
  @item{None of the generated functions (@racket[struct-name++], @racket[set-struct-name-field-name], etc) are exported.  You'll need to list them in your @racket[provide] line manually}
  @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
  @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}

@@ -16,7 +16,15 @@
 
 (provide struct++
          struct->hash
+         hash->struct++
          (all-from-out "reflection.rkt"))
+
+;;  hash->struct/kw comes from handy/struct; we want to re-export it but with a less ugly
+;;  name.  (Also so that if I eventually re-implement it here in a more efficient or etc
+;;  way then the change won't be visible on the outside.)  If we tried (provide (rename-out
+;;  [hash->struct/kw hash->struct++])) then the name would not be changed in the printer.
+;;
+(define hash->struct++ (procedure-rename hash->struct/kw 'hash->struct++))
 
 ;;======================================================================
 
