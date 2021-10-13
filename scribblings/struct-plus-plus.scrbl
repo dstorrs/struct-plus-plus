@@ -584,7 +584,7 @@ Regarding @racket[#:mutable]: Supporting this one would be straightforward, so n
 
 @section{Thanks}
 
-The words 'shoulders of giants' apply here.  I would like to offer great thanks to:
+The words `shoulders of giants' apply here.  I would like to offer great thanks to:
 
 @itemlist[
  @item{Greg Hendershott, for his @link["http://www.greghendershott.com/fear-of-macros/"]{"Fear of Macros"} essay}
