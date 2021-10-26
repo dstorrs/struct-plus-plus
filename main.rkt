@@ -216,9 +216,10 @@
      #:with result (template
                     ((lambda (var ...)
                        (when (not code)
-                         (let ([args (flatten (map list
-                                                   (map symbol->string '(var ...))
-                                                   (list var ...)))])
+                         (let ([args (apply append
+                                            (map list
+                                                 (map symbol->string '(var ...))
+                                                 (list var ...)))])
                            (apply raise-arguments-error
                                   (string->symbol (format "failed in struct++ rule named '~a' (type: check)" rule-name))
                                   "check failed"
@@ -236,9 +237,10 @@
                                                 'true?))]
                            [num-valid (count pred (list var ...))])
                       (when (< num-valid min-ok )
-                        (let ([args (flatten (map list
-                                                  (map symbol->string '(var ...))
-                                                  (list var ...)))])
+                        (let ([args (apply append
+                                           (map list
+                                                (map symbol->string '(var ...))
+                                                (list var ...)))])
                           (apply raise-arguments-error
                                  (string->symbol (format "failed in struct++ rule named '~a' (type: at-least)" rule-name))
                                  "too many invalid fields"
@@ -385,4 +387,3 @@
             ...)))))))
 
 ;;-----------------------------------------------------------------------
-

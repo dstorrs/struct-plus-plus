@@ -6,7 +6,7 @@
          try-catch
          "../main.rkt")
 
-(expect-n-tests 57)
+(expect-n-tests 65)
 
 ;  We need a quick macro so we can tell if something is defined.
 (define-syntax (if-defined stx)
@@ -161,72 +161,72 @@
            "(update-book-pages b (lambda (x) 'invalid)) threw due to violating field contract")
    ))
 
-#;(when #t
-    (test-suite
-     "rules"
+(when #t
+  (test-suite
+   "rules"
 
-     (define eye-color/c  (apply or/c '(brown hazel blue green other)))
-     (struct++ person ([name           (or/c symbol? non-empty-string?) symbol-string->string]
-                       [age            positive?]
-                       [eyes           eye-color/c]
-                       [(height-m #f)  positive?]
-                       [(weight-kg #f) positive?]
-                       [(bmi #f)       positive?]
-                       [(felonies 0)   positive-integer?]
-                       [(notes "")]
-                       )
-               (
-                #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
-                #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
-                #:rule ("ensure weight-kg"       #:transform weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
-                #:rule ("ensure bmi"             #:transform bmi    (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
-                #:rule ("lie about age"          #:transform age (age) [(define lie 18.0)
-                                                                        (cond [(>= age 18) age]
-                                                                              [else lie])])
-                #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
-                                                                              (= 0 felonies))])
+   (define eye-color/c  (apply or/c '(brown hazel blue green other)))
+   (struct++ person ([name           (or/c symbol? non-empty-string?) symbol-string->string]
+                     [age            positive?]
+                     [eyes           eye-color/c]
+                     [(height-m #f)  positive?]
+                     [(weight-kg #f) positive?]
+                     [(bmi #f)       positive?]
+                     [(felonies 0)   positive-integer?]
+                     [(notes "")]
+                     )
+             (
+              #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
+              #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
+              #:rule ("ensure weight-kg"       #:transform weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
+              #:rule ("ensure bmi"             #:transform bmi    (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
+              #:rule ("lie about age"          #:transform age (age) [(define lie 18.0)
+                                                                      (cond [(>= age 18) age]
+                                                                            [else lie])])
+              #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
+                                                                            (= 0 felonies))])
 
-                )
-               #:transparent
-               )
-     (throws (thunk (person++ #:name 'bob
-                              #:age 18
-                              #:eyes 'brown
-                              #:felonies 1
-                              #:bmi 20
-                              ))
-             #px"bmi can be found"
-             "need to supply at least two of bmi/height-m/weight-kg")
-
-     (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
-           [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
-           [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
-           )
-       (for ([key '(height-m weight-kg bmi)])
-         (is (hash->struct/kw person++ (safe-hash-remove base key))
-             correct
-             (format fmt key))))
-
-     (throws (thunk (person++ #:name 'bob
-                              #:age 18
-                              #:eyes 'brown
-                              #:felonies 1
-                              #:height-m 2
-                              #:weight-kg 100
-                              ))
-             #px"eligible-for-military"
-             "can't join the army if you've committed a felony"
+              )
+             #:transparent
              )
-     (is (person++ #:name 'bob
-                   #:age 16
-                   #:eyes 'brown
-                   #:height-m 2
-                   #:weight-kg 100
-                   )
-         (person "bob" 18.0 'brown 2 100 25 0 "")
-         "bob lies about his age to join the military"
+   (throws (thunk (person++ #:name 'bob
+                            #:age 18
+                            #:eyes 'brown
+                            #:felonies 1
+                            #:bmi 20
+                            ))
+           #px"bmi can be found"
+           "need to supply at least two of bmi/height-m/weight-kg")
+
+   (let ([correct (person "bob" 18 'brown 2 100 25 0 "")]
+         [fmt    "bmi/height-m/weight-kg get populated if ~a is missing"]
+         [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
          )
-     ))
+     (for ([key '(height-m weight-kg bmi)])
+       (is (hash->struct/kw person++ (safe-hash-remove base key))
+           correct
+           (format fmt key))))
+
+   (throws (thunk (person++ #:name 'bob
+                            #:age 18
+                            #:eyes 'brown
+                            #:felonies 1
+                            #:height-m 2
+                            #:weight-kg 100
+                            ))
+           #px"eligible-for-military"
+           "can't join the army if you've committed a felony"
+           )
+   (is (person++ #:name 'bob
+                 #:age 16
+                 #:eyes 'brown
+                 #:height-m 2
+                 #:weight-kg 100
+                 )
+       (person "bob" 18.0 'brown 2 100 25 0 "")
+       "bob lies about his age to join the military"
+       )
+   ))
 
 (when #t
   (test-suite
@@ -531,3 +531,72 @@
      8
      "rover is 8"))
 
+(when #t
+  (test-suite
+   "tests from the field: file-event"
+
+   ; This is (simplified) production code from some other project where the code failed
+   ; and caused me to fix something in struct++
+
+   (define event-type/c (or/c 'c 'u 'd))  ; create, update, delete
+   (struct++ file-event ([type            event-type/c]
+                         [(size 0)        natural-number/c] ; 0  for directories
+                         [(file-hash "")  string?]
+                         [timestamp       real?])
+             (#:omit-reflection)
+             #:prefab)
+
+
+   (define (is-update-event? e) (equal? 'u (file-event.type e)))
+
+   (struct++ file-history
+             ([path            (and/c path-string? string? relative-path?)]
+              [directory?      (or/c 0 1 boolean?)]
+              [events          (listof file-event?)])
+             (#:omit-reflection
+              #:rule ("directories only have create or delete events"
+                      #:check (directory? events)
+                      [(or (not directory?)
+                           (for/and ([e events])
+                             (is-update-event? e)))]))
+             #:prefab)
+
+   (define events
+     (lives (thunk
+             (for/list ([type (in-cycle '(c u d))]
+                        [size 3]
+                        [hash (in-cycle '(""))]
+                        [stamp 10])
+               (file-event++ #:type      type
+                             #:size      size
+                             #:file-hash hash
+                             #:timestamp stamp)))
+            "created the events correctly"))
+
+   (throws (thunk
+            (file-history++ #:path "foo/bar/baz/"
+                            #:directory? #t
+                            #:events events))
+           #px"failed in struct\\+\\+ rule named"
+           "correctly reports a failed check when one of the arguments is a list")
+
+   )
+  )
+
+(when #t
+  (test-suite
+   "at-least handles list arguments"
+
+
+   (struct++ thing
+             ([(name #f)]
+              [(age  #f)])
+             (#:rule ("got nums" #:at-least 1 (negate list?) (name age))))
+
+   (throws (thunk (thing++  #:name '(bob) #:age (list 17)))
+           #rx"too many invalid fields"
+           "error reporting is correct when using an #:at-least rule with list arguments"
+           )
+
+   )
+  )
