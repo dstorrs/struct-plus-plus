@@ -2,7 +2,6 @@
 
 (require handy/test-more
          handy/utils
-         handy/struct
          try-catch
          "../main.rkt")
 
@@ -203,7 +202,7 @@
          [base   (hash 'name "bob" 'age 18 'eyes 'brown 'height-m 2 'weight-kg 100 'bmi 25)]
          )
      (for ([key '(height-m weight-kg bmi)])
-       (is (hash->struct/kw person++ (safe-hash-remove base key))
+       (is (hash->struct++ person++ (safe-hash-remove base key))
            correct
            (format fmt key))))
 
@@ -449,67 +448,68 @@
      @~a{(list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred)) works}))
 
 
-#;(test-suite
-   "#:converters"
-   (struct++ house
-             ([street-num             natural-number/c]
-              [owner-surname          (or/c #f string?)]
-              [(description (hash))   (or/c #f hash?)]
-              )
-             (#:converters ([#:from ([hash  hash? (curry hash->struct/kw house++)]
-                                     [json-string non-empty-string?
-                                                  (compose1 hash->house++
-                                                            string->jsexpr)]
-                                     )]
-                            [#:to   ([json-string non-empty-string?
-                                                  (compose1 jsexpr->string
-                                                            struct->hash)]
-                                     [hash  hash? struct->hash])]))
-             #:transparent)
+#;
+(test-suite
+ "#:converters"
+ (struct++ house
+           ([street-num             natural-number/c]
+            [owner-surname          (or/c #f string?)]
+            [(description (hash))   (or/c #f hash?)]
+            )
+           (#:converters ([#:from ([hash  hash? (curry hash->struct++ house++)]
+                                   [json-string non-empty-string?
+                                                (compose1 hash->house++
+                                                          string->jsexpr)]
+                                   )]
+                          [#:to   ([json-string non-empty-string?
+                                                (compose1 jsexpr->string
+                                                          struct->hash)]
+                                   [hash  hash? struct->hash])]))
+           #:transparent)
 
-   (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
-
-
-   (is (if-defined hash->house++ 'defined 'not-defined)
-       'defined
-       "when using #:converters, '#:from hash' correctly produced hash->house++")
-
-   (is (if-defined house++->json-string 'defined 'not-defined)
-       'defined
-       "when using #:converters, '#:from hash' correctly produced hash->house++")
-
-   (is (if-defined json-string->house++ 'defined 'not-defined)
-       'defined
-       "when using #:converters, '#:from json-string' correctly produced json-string->house++")
-
-   (contract-equivalent? (contract-value hash->house++)
-                         (-> hash? house?)
-                         "hash->house++ contract is correct")
-
-   (contract-equivalent? (contract-value json-string->house++)
-                         (-> non-empty-string? house?)
-                         "hash->house++ contract is correct")
-
-   (contract-equivalent? (contract-value house++->json-string)
-                         (-> house? non-empty-string?)
-                         "hash->house++ contract is correct")
+ (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
 
 
-   (define correct-hash
-     (hash 'street-num 7
-           'owner-surname "smith"
-           'description (hash 'color "red")))
+ (is (if-defined hash->house++ 'defined 'not-defined)
+     'defined
+     "when using #:converters, '#:from hash' correctly produced hash->house++")
 
-   (define correct-house (house 7 "Smith" (hash 'color "red")))
+ (is (if-defined house++->json-string 'defined 'not-defined)
+     'defined
+     "when using #:converters, '#:from hash' correctly produced hash->house++")
 
-   (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+ (is (if-defined json-string->house++ 'defined 'not-defined)
+     'defined
+     "when using #:converters, '#:from json-string' correctly produced json-string->house++")
 
-   (is (house++->hash correct-house) correct-hash "house++->hash worked")
+ (contract-equivalent? (contract-value hash->house++)
+                       (-> hash? house?)
+                       "hash->house++ contract is correct")
 
-   (is (json-string->house++ (jsexpr->string correct-hash))
-       correct-house
-       "json-string->house++ worked")
-   )
+ (contract-equivalent? (contract-value json-string->house++)
+                       (-> non-empty-string? house?)
+                       "hash->house++ contract is correct")
+
+ (contract-equivalent? (contract-value house++->json-string)
+                       (-> house? non-empty-string?)
+                       "hash->house++ contract is correct")
+
+
+ (define correct-hash
+   (hash 'street-num 7
+         'owner-surname "smith"
+         'description (hash 'color "red")))
+
+ (define correct-house (house 7 "Smith" (hash 'color "red")))
+
+ (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+
+ (is (house++->hash correct-house) correct-hash "house++->hash worked")
+
+ (is (json-string->house++ (jsexpr->string correct-hash))
+     correct-house
+     "json-string->house++ worked")
+ )
 
 
 (test-suite
