@@ -4,7 +4,8 @@
 (define version "5.3")
 (define deps '("base"
                "handy"
-               "syntax-classes-lib"))
+               "syntax-classes-lib"
+               "try-catch"))
 
 (define scribblings '(("scribblings/struct-plus-plus.scrbl" ())))
 

@@ -3,7 +3,7 @@
 (require handy/test-more
          handy/utils
          handy/struct
-         handy/try
+         try-catch
          "../main.rkt")
 
 (expect-n-tests 57)
@@ -530,3 +530,4 @@
  (is (animal.age (animal++ #:name "rover" #:age 7))
      8
      "rover is 8"))
+
