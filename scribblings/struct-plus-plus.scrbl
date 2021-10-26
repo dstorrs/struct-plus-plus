@@ -308,9 +308,17 @@ The setters and updaters are not exported.  You will need to put them in the @ra
 
 Structs always have business logic associated with them -- that's the entire point.  Much of that can be embodied as contracts or wrapper functions, but if you want to enforce requirements between fields then you need rules. No one wants to code all that stuff manually, so let's have some delicious syntactic sugar that lets us create them declaratively.
 
+@racketmodname[struct-plus-plus] supports three types of rules, all of which are run when a struct instance is created:
+
+@itemlist[
+@item{@racket[#:check], which verifies that a condition holds and uses @racket[raise-arguments-exception] if it does not.}
+@item{@racket[#:at-least], which verifies that at least N of a particular set of arguments meet a particular requirement (by default `are not @racket[#f]'), thereby enabling the rest to be calculated.}
+@item{@racket[#:transform], which converts one argument to a different value before the instance is constructed.  This might be used to calculate an argument value or to compel certain constraints to be maintained.  Rules are evaluated in order and later rules will see the transformed values of earlier rules.}
+]
+
 Let's go back to our example of the recruit.  In order to be accepted into the military, you must be at least 18 years of age, have no felonies on your record, and be reasonably fit (BMI no more than 25).
 
-Bob @italic{really} wants to join the military, and he's willing to lie about his age to do that.
+Bob @italic{really} wants to join the military, and he's willing to lie about his age to do that.  The following struct checks that enough information is available to calculate Bob's BMI (body mass index) and then populates his height, weight, and BMI.
 
 @examples[
  #:eval eval
@@ -324,14 +332,15 @@ Bob @italic{really} wants to join the military, and he's willing to lie about hi
             [(bmi #f) positive?]
             [(felonies 0) natural-number/c])
            (#:rule   ("bmi can be found" #:at-least    2         (height-m weight-kg bmi))
+	    #:rule   ("lie about age if necessary" #:transform age (age) [(if (>= age (get-min-age)) age (get-min-age))])
             #:rule   ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
             #:rule   ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
-            )
+	    #:rule   ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ weight-kg (expt height-m 2)))]))
            #:transparent)
  ]
 
 
-In the "ensure height-m" rule it is not necessary to check that you have both weight-kg and bmi because the "bmi can be found" rule has already established that.  The same applies to the "ensure weight-kg" and "ensure bmi" rules.
+In the "ensure height-m" rule it is not necessary to check that you have both weight-kg and bmi because the "bmi can be found" rule has already established that either @racketid[height-m] was specified or the other two were specified.  The same applies to the "ensure weight-kg" and "ensure bmi" rules.
  
 @examples[
  #:eval eval
@@ -353,9 +362,9 @@ Note that Bob's name has been changed from a symbol to a string as per Army regu
  (eval:error (set-lying-recruit-felonies bob #f))
  ]
 
-Nope!  You cannot invalidate the structure by way of the functional setters/updaters, although you could do it if you marked your struct as #:mutable and then used the standard Racket mutators. (e.g. @racket[set-recruit-felonies!])
+Nope!  You cannot invalidate the structure by way of the functional setters/updaters, although you could do it if you marked your struct as @racket[#:mutable] and then used the standard Racket mutators. (e.g. @racket[set-recruit-felonies!])
 
- There are two separate but equivalent formats for declaring rules:  the @racket[#:rule] keyword followed by a rule clause or the @racket[#:rules] keyword following by a parenthesized sequence of rule clauses.  It's mostly an aesthetic choice and they can be intermixed.
+ There are two separate but equivalent formats for declaring rules:  the @racket[#:rule] keyword followed by a rule clause or the @racket[#:rules] keyword following by a parenthesized sequence of rule clauses.  The @racket[#:rules] parenthesized form is more Racketish, whereas the @racket[#:rule] syntax exists for historical reasons and is maintained for backwards compatibility.  Still, it's mostly an aesthetic choice and they can be intermixed.
 
 @examples[
  #:eval eval
