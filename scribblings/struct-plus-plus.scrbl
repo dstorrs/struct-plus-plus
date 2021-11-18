@@ -142,9 +142,14 @@ The intent is to move structs from being dumb data repositories into being data 
  (list (recruit.age bob) (recruit-age bob))
  
  (code:comment "\n; various conversion functions that marshal to different forms") 
- (recruit/convert->db bob)
- (recruit/convert->alist bob)
- (recruit/convert->json bob)
+ (recruit->db bob)
+ (recruit/convert->db bob)    (code:comment "\t deprecated alias for the above")
+
+ (recruit->alist bob)
+ (recruit/convert->alist bob) (code:comment "\t deprecated alias for the above")
+
+; (recruit->json bob)
+; (recruit/convert->json bob)  (code:comment "\t deprecated alias for the above")
  ]
 
 
@@ -405,7 +410,7 @@ When marshalling a struct for writing to a database, a file, etc, it is useful t
 
 Note that @racket[#:overwrite] provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
 
-convert-for functions are named @racket[<struct-name>/convert-><purpose>], where 'purpose' is the name given to the conversion specification.  For example:
+convert-for functions are named @racket[<struct-name>-><purpose>], where `purpose' is the name given to the conversion specification.  (DEPRECATED: There are also aliases named @racket[<struct-name>/convert-><purpose>]) For example:
 
 @examples[
  #:eval eval
@@ -416,15 +421,20 @@ convert-for functions are named @racket[<struct-name>/convert-><purpose>], where
             #:convert-for (json (#:add (hash 'created-at (current-seconds))
                                  #:post write-json)))
            #:transparent)
- (person/convert->db (person 'bob 18))
- (person/convert->json (person "bob" 18))
+ (define bob (person "bob" 18))
+ (person->db   bob)
+ (person->json bob)
+
+ (code:comment "\n; deprecated aliases for the above")
+ (person/convert->db   bob)
+ (person/convert->json bob)
  ]
 
 @subsection{convert-from}
 
 convert-from functions go the opposite direction from convert-for -- they accept an arbitrary value and they turn it into a struct.
 
-convert-from functions are named @racket[<source>-><struct-name>++], where 'source' is the name given to the conversion specification.  For example:
+convert-from functions are named @racket[<source>-><struct-name>++], where `source' is the name given to the conversion specification.  For example:
 
 @examples[
  #:eval eval
@@ -482,7 +492,7 @@ All fields have wrappers; either you set one or the wrapper is @racket[identity]
 
 @section{Reflection}
 
-By default, all struct++ types support reflection by way of a structure property, 'prop:struct++', which contains a promise (via @racket[delay]) which contains a struct++-info struct containing relevant metadata.  
+By default, all struct++ types support reflection by way of a structure property, `prop:struct++', which contains a promise (via @racket[delay]) which contains a struct++-info struct containing relevant metadata.  
 
 Use the @racket[#:omit-reflection] keyword to disable this behavior.  You will need to do so if you are including the @racket[#:prefab] struct option.
 
