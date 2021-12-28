@@ -176,12 +176,15 @@
                      )
              (
               #:rule ("bmi can be found"       #:at-least 2 (height-m weight-kg bmi))
-              #:rule ("ensure height-m"        #:transform height-m (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
-              #:rule ("ensure weight-kg"       #:transform weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
-              #:rule ("ensure bmi"             #:transform bmi    (height-m weight-kg bmi) [(or bmi (/ 100 (expt height-m 2)))])
               #:rule ("lie about age"          #:transform age (age) [(define lie 18.0)
                                                                       (cond [(>= age 18) age]
                                                                             [else lie])])
+              #:rule ("ensure height/weight/BMI"       #:transform (height-m weight-kg bmi)
+                                                       (height-m weight-kg bmi)
+                                                       [(values
+                                                         (or height-m  (sqrt (/ weight-kg bmi)))
+                                                         (or weight-kg (* (expt height-m 2) bmi))
+                                                         (or bmi       (/ 100 (expt height-m 2))))])
               #:rule ("eligible-for-military?" #:check (age felonies) [(and (>= age 18)
                                                                             (= 0 felonies))])
 
@@ -223,9 +226,7 @@
                  #:weight-kg 100
                  )
        (person "bob" 18.0 'brown 2 100 25 0 "")
-       "bob lies about his age to join the military"
-       )
-   ))
+       "bob lies about his age to join the military")))
 
 (when #t
   (test-suite

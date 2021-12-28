@@ -206,6 +206,13 @@
 
   (define-splicing-syntax-class rule-clause
     (pattern
+     (~seq (rule-name:str (~seq #:transform (target:id ...) (var:id ...) [code:expr ...+])))
+     #:with type #''transform
+     #:with result (template
+                    (set!-values (target ...)
+                                 ((lambda (var ...) code ...) var ...))))
+
+    (pattern
      (~seq (rule-name:str (~seq #:transform target (var:id ...) [code:expr ...+])))
      #:with type #''transform
      #:with result (template (set! target ((lambda (var ...) code ...) var ...))))

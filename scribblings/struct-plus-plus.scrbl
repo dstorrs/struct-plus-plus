@@ -180,6 +180,7 @@ The intent is to move structs from being dumb data repositories into being data 
  rule-clause :   (rule-name #:at-least N maybe-pred (field-id ...+))
                | (rule-name #:check (field-id ...+) [expr])
                | (rule-name #:transform field-id (field-id ...+) (expr  ...+))
+               | (rule-name #:transform (field-id ...+) (field-id ...+) (expr  ...+))
 
  rule-name :  string?
 
@@ -313,12 +314,13 @@ Structs always have business logic associated with them -- that's the entire poi
 @itemlist[
 @item{@racket[#:check], which verifies that a condition holds and uses @racket[raise-arguments-exception] if it does not.}
 @item{@racket[#:at-least], which verifies that at least N of a particular set of arguments meet a particular requirement (by default `are not @racket[#f]'), thereby enabling the rest to be calculated.}
-@item{@racket[#:transform], which converts one argument to a different value before the instance is constructed.  This might be used to calculate an argument value or to compel certain constraints to be maintained.  Rules are evaluated in order and later rules will see the transformed values of earlier rules.}
+@item{@racket[#:transform], which alters one or more arguments before the instance is constructed.  This might be used to calculate an argument value or to compel certain constraints to be maintained.  Rules are evaluated in order and later rules will see the transformed values of earlier rules.}
 ]
 
 Let's go back to our example of the recruit.  In order to be accepted into the military, you must be at least 18 years of age, have no felonies on your record, and be reasonably fit (BMI no more than 25).
 
 Bob @italic{really} wants to join the military, and he's willing to lie about his age to do that.  The following struct checks that enough information is available to calculate Bob's BMI (body mass index) and then populates his height, weight, and BMI.
+
 
 @examples[
  #:eval eval
@@ -331,16 +333,22 @@ Bob @italic{really} wants to join the military, and he's willing to lie about hi
             [(weight-kg #f) positive?]
             [(bmi #f) positive?]
             [(felonies 0) natural-number/c])
-           (#:rule   ("bmi can be found" #:at-least    2         (height-m weight-kg bmi))
-	    #:rule   ("lie about age if necessary" #:transform age (age) [(if (>= age (get-min-age)) age (get-min-age))])
-            #:rule   ("ensure height-m"  #:transform   height-m  (height-m weight-kg bmi) [(or height-m (sqrt (/ weight-kg bmi)))])
-            #:rule   ("ensure weight-kg" #:transform   weight-kg (height-m weight-kg bmi) [(or weight-kg (* (expt height-m 2) bmi))])
-	    #:rule   ("ensure bmi"       #:transform   bmi       (height-m weight-kg bmi) [(or bmi (/ weight-kg (expt height-m 2)))]))
-           #:transparent)
- ]
+      (#:rule   ("bmi can be found"     #:at-least    2       (height-m weight-kg bmi))
+       #:rule   ("lie about age if necessary" #:transform age (age) [(if (>= age (get-min-age)) age (get-min-age))])
+       #:rule ("ensure height/weight/BMI"     #:transform
+                                                 (height-m weight-kg bmi)
+                                                 (bmi height-m weight-kg name)
+                                                 ["fields to transform and fields to use can differ in number and order"
+                                                  "values returned must match values to transform in number and order"
+                                                  (values
+                                                   (or height-m  (sqrt (/ weight-kg bmi)))
+                                                   (or weight-kg (* (expt height-m 2) bmi))
+                                                   (or bmi       (/ 100 (expt height-m 2))))])
+       )
+      #:transparent)
+          ]
 
-
-In the "ensure height-m" rule it is not necessary to check that you have both weight-kg and bmi because the "bmi can be found" rule has already established that either @racketid[height-m] was specified or the other two were specified.  The same applies to the "ensure weight-kg" and "ensure bmi" rules.
+In the "ensure height/weight/BMI" rule it is not necessary to check that you have enough information to do the calculations because the "bmi can be found" rule has already established that either two or three out of the three values (@racketid[height-m], @racketid[weight-kg], @racketid[bmi]) were specified.
  
 @examples[
  #:eval eval
