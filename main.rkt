@@ -110,10 +110,15 @@
 
   ;;--------------------------------------------------
 
-  (define-template-metafunction (make-convert-for-function-name stx)
+  (define-template-metafunction (make-deprecated-convert-for-function-name stx)
     (syntax-parse stx
       [(make-convert-for-function-name struct-id purpose)
        (format-id #'struct-id "~a/convert->~a" #'struct-id #'purpose)]))
+
+  (define-template-metafunction (make-convert-for-function-name stx)
+    (syntax-parse stx
+      [(make-convert-for-function-name struct-id purpose)
+       (format-id #'struct-id "~a->~a" #'struct-id #'purpose)]))
 
   ;;--------------------------------------------------
 
@@ -121,9 +126,15 @@
     (syntax-parse stx
       [(make-convert-for-function  struct-id purpose predicate arg ...)
        (template
-        (define/contract ((make-convert-for-function-name struct-id purpose) instance)
-          (-> predicate any)
-          (hash-remap (struct->hash struct-id instance) (~@ arg ...))))]))
+        (begin
+          (define/contract ((make-convert-for-function-name struct-id purpose) instance)
+            (-> predicate any)
+            (hash-remap (struct->hash struct-id instance) (~@ arg ...)))
+          (define (make-deprecated-convert-for-function-name struct-id purpose)
+            (procedure-rename (make-convert-for-function-name struct-id purpose)
+                              '(make-deprecated-convert-for-function-name struct-id purpose))
+            )
+          ))]))
 
   ;;--------------------------------------------------
 
