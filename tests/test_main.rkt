@@ -5,7 +5,7 @@
          try-catch
          "../main.rkt")
 
-(expect-n-tests 65)
+(expect-n-tests 68)
 
 ;  We need a quick macro so we can tell if something is defined.
 (define-syntax (if-defined stx)
@@ -300,6 +300,14 @@
                           #:age       16
                           #:height-m  2
                           #:weight-kg 100))
+   (is (recruit->db bob)
+       '#hash((name . "bob")
+              (age . 18.0)
+              (height . 2)
+              (weight . 100)
+              (felonies . 0))
+       "(recruit->db bob) works")
+
    (is (recruit/convert->db bob)
        '#hash((name . "bob")
               (age . 18.0)
@@ -308,10 +316,26 @@
               (felonies . 0))
        "(recruit/convert->db bob) works")
 
+   (is (sort (recruit->alist bob) symbol<? #:key car)
+       '((age . 18.0) (felonies . 0) (height . 2) (name . "bob") (weight . 100) )
+       "(recruit->alist bob) works")
+
    (is (sort (recruit/convert->alist bob) symbol<? #:key car)
        '((age . 18.0) (felonies . 0) (height . 2) (name . "bob") (weight . 100) )
        "(recruit/convert->alist bob) works")
 
+   (is (recruit->json bob)
+       '#hash((name . "bob")
+              (age . 6570.0)
+              (height . 2)
+              (weight . 100)
+              (bmi . 25)
+              (eyes . "brown")
+              (hair . "brown")
+              (shirt . "t-shirt")
+              (vision . "20/20"))
+       "(recruit->json bob) works")
+   
    (is (recruit/convert->json bob)
        '#hash((name . "bob")
               (age . 6570.0)
@@ -322,8 +346,7 @@
               (hair . "brown")
               (shirt . "t-shirt")
               (vision . "20/20"))
-       "(recruit/convert->json bob) works"
-       )))
+       "(recruit/convert->json bob) works")))
 
 (when #t
   (test-suite
