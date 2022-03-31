@@ -142,11 +142,13 @@ The intent is to move structs from being dumb data repositories into being data 
  (list (recruit.age bob) (recruit-age bob))
  
  (code:comment "\n; various conversion functions that marshal to different forms") 
- (recruit->db bob)
- (recruit/convert->db bob)    (code:comment "\t deprecated alias for the above")
+  (recruit->db bob)
+  (code:comment "\t deprecated alias for the above")
+ (recruit/convert->db bob)    
 
- (recruit->alist bob)
- (recruit/convert->alist bob) (code:comment "\t deprecated alias for the above")
+  (recruit->alist bob)
+  (code:comment "\t deprecated alias for the above")
+ (recruit/convert->alist bob) 
 
 ; (recruit->json bob)
 ; (recruit/convert->json bob)  (code:comment "\t deprecated alias for the above")
