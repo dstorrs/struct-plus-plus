@@ -226,7 +226,36 @@
                  #:weight-kg 100
                  )
        (person "bob" 18.0 'brown 2 100 25 0 "")
-       "bob lies about his age to join the military")))
+       "bob lies about his age to join the military")
+
+   ; Verify that transform rules see each other regardless of if they are in #:rule or #:rules
+   (struct++ pet ([name          symbol?]
+                  [type          (or/c 'cat 'dog 'snake)]
+                  [has-claws?    boolean?]
+                  [has-morals?   boolean?]
+                  [is-dangerous? boolean?])
+             (#:rule ("dogs have morals, cats don't, snakes eh"
+                      #:transform has-morals? (type has-morals?) [(match type
+                                                                    ['snake has-morals?]
+                                                                    ['cat   #f]
+                                                                    ['dog   #t])])
+              #:rules (["snakes do not have claws"
+                        #:transform (has-claws?) (type has-claws?) [(match type
+                                                                      ['snake #f]
+                                                                      [_      has-claws?])]]
+                       ["animals with claws and no morals are dangerous"
+                        #:transform is-dangerous? (has-claws? has-morals? is-dangerous?)
+                        [(if (and has-claws? (not has-morals?)) #t is-dangerous?)]]))
+             #:transparent)
+   (is (pet++ #:name          'whiskers
+              #:type          'cat
+              #:has-claws?    #t
+              #:has-morals?   #t  ; owner thinks whiskers is sweet
+              #:is-dangerous? #f) ; owner thinks whiskers is not dangerous.  WRONG!
+       (pet 'whiskers 'cat #t #f #t)
+       "whiskers is dangerous because she is amoral and clawed, despite owners belief's"
+       )
+   ))
 
 (when #t
   (test-suite
@@ -335,7 +364,7 @@
               (shirt . "t-shirt")
               (vision . "20/20"))
        "(recruit->json bob) works")
-   
+
    (is (recruit/convert->json bob)
        '#hash((name . "bob")
               (age . 6570.0)
