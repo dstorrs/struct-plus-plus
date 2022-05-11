@@ -612,6 +612,33 @@ Regarding @racket[#:auto]:  The per-field default syntax that @racket[struct++] 
 
 Regarding @racket[#:mutable]: Supporting this one would be straightforward, so not supporting it is a deliberate choice.  The functional setters that @racket[struct++] provides should satisfy nearly all the same use cases as the @racket[#:mutable] field option, and it's still possible to use the struct-level #:mutable option if you really want to mutate.  Mutation should be avoided in general, so leaving out the @racket[#:mutable] field option seems like a good decision.
 
+@subsection{Supertypes and why they aren't available}
+
+tl;dr:  It's probably doable but it was more complex than I wanted to put the work in for.  Pull requests welcome.
+
+Supertypes in Racket come with some tricky issues, such as this:
+
+@examples[
+ #:eval eval
+ #:label #f
+
+
+(struct animal (name age) #:transparent)
+(struct person animal (name job)  #:transparent)
+(code:comment "  Note that both animal and person have a name field")
+(code:comment "  ")
+(define bob (person 'human 27 'bob 'teacher))
+bob
+(person? bob)
+(animal? bob)
+(person-name bob)
+(animal-name bob)
+(struct->hash person bob)
+]
+
+The supertype and the subtype have fields with the same name.  When you access fields from the @racketid[animal] part of the struct, you do it using @racketid[animal-] functions, thereby losing the association to the @racketid[person] type.  What should the setter and updater look like?  How do you ensure that the wrapper function and field contracts from the supertype are respected by the subtype? 
+
+This would be possible to do using reflection data, but that data isn't available when @racket[#:omit-reflection] is set, which is necessary if the struct is @racket[#:prefab].  I would prefer to not need to have a note saying "this works, unless you have @racket[#:omit-reflection] set".
 
 @section{Thanks}
 
