@@ -5,7 +5,7 @@
          try-catch
          "../main.rkt")
 
-(expect-n-tests 68)
+(expect-n-tests 77)
 
 ;  We need a quick macro so we can tell if something is defined.
 (define-syntax (if-defined stx)
@@ -15,109 +15,159 @@
        (if where #'iftrue #'iffalse))]))
 
 
-(when #t
-  (test-suite
-   "dotted accessors"
+(test-suite
+ "dotted accessors"
 
-   (begin
-     (struct++ person (name [(age 18) integer?]) #:transparent)
-     (define bob (person++ #:name 'bob #:age 20))
-     (is (person.name bob) 'bob "(person.name bob) returned 'bob as expected when #:make-dotted-accessors? not specified")
-     (is (person.name bob) (person-name bob) "person.name and person-name are the same"))
+ (let ()
+   (struct++ person (name
+                     [weight (or/c string? promise? integer?) identity
+                             #:wrap-accessor (λ (the-struct val)
+                                               (force val))]
+                     [bmi (or/c string? promise? integer?) identity
+                          #:wrap-accessor (wrap-accessor force)]
+                     ) #:transparent)
+   (define bob (person++ #:name 'bob
+                         #:weight (lazy 9)
+                         #:bmi (lazy  19)
+                         ))
+   (is-type (person-weight bob)  promise? "(person-weight bob) is a promise (accessor defined via lambda)")
+   (is-false (promise-forced? (person-weight bob)) "before dotted accessor, promise was not forced")
+   (is (person.weight bob) 9 "(person.weight bob) is 9")
+   (ok (promise-forced? (person-weight bob)) "after dotted accessor, promise was forced")
 
+   (is-type (person-bmi bob)  promise? "(person-bmi bob) is a promise (accessor defined via wrap-accessor)")
+   (is-false (promise-forced? (person-bmi bob)) "before dotted accessor, promise was not forced")
+   (is (person.bmi bob) 19 "(person.bmi bob) is 19")
+   (ok (promise-forced? (person-bmi bob)) "after dotted accessor, promise was forced")
+   (is (if-defined person.name 'defined 'not-defined)
+       'defined
+       "when #:make-dotted-accessors? does not appear, the accessors are created"
+       ))
 
-   (begin
-     (struct++ student
-               (name [(age 18) integer?])
-               (#:make-dotted-accessors? #t)
-               #:transparent)
-     (define fred (student++ #:name 'fred #:age 20))
-     (is (student.name fred) 'fred "(student.name fred) returned 'fred as expected when #:make-dotted-accessors? was #t")
-     (is (student.name fred) (student-name fred) "student.name and student-name are the same"))
-
-   (begin
-     (struct++ animal
-               (name [(age 18) integer?])
-               (#:make-dotted-accessors? #f)
-               #:transparent)
-     (is (if-defined animal.name 'defined 'not-defined)
-         'not-defined
-         "when using #:make-dotted-accessors? #f, the accessors were not created"
-         ))
-   ))
-
-(when #t
-  (test-suite
-   "struct->hash"
-
-   (struct++ person (name [(age 18) integer?]) #:transparent)
-   (define bob (person++ #:name 'bob #:age 20))
-   (is bob
-       (person 'bob 20)
-       "created bob"
-       )
-   (is (struct->hash person bob)
-       (hash 'name 'bob
-             'age 20)
-       "converted to hash"
-       )
-   ))
-
-(when #t
-  (test-suite
-   "struct++ definitions"
-
-   (struct thing (name)         #:transparent)
-   (struct++ ball  (owner
-                    [(maker 'adidas)]
-                    [color (or/c 'red 'white 'black)]
-                    [texture  (or/c 'rough 'smooth) symbol->string]
-                    [(weight-kg 100) exact-positive-integer?]
-                    [(shear-force 20) exact-positive-integer? number->string]
-                    )
-             ()
+ (let ()
+   (struct++ ball
+             (color)
+             (#:make-dotted-accessors? #t)
              #:transparent)
-
-   (dies (thunk (ball++)) "(ball++) dies")
-
-   ; none
-   (is (ball++ #:owner 'tom #:maker 'toms #:color 'red
-               #:texture 'rough #:weight-kg 77 #:shear-force 17)
-       (ball 'tom 'toms 'red "rough" 77 "17")
-       "ball++ with all params specified works")
-
-   ; default
-   (is (ball++ #:owner 'tom #:color 'red #:texture 'rough)
-       (ball 'tom 'adidas 'red "rough" 100 "20")
-       "ball++ can default")
-
-   ; contract
-   (throws (thunk (ball++ #:owner 'tom #:texture 'rough #:color 'notarealcolor))
-           @pregexp{expected: \(or/c \(quote red\) \(quote white\) \(quote black\)\)}
-           "ball++ contracts work")
-
-   ; contract + wrapper
-   (is (ball++ #:owner 'tom #:color 'red #:texture 'rough)
-       (ball 'tom 'adidas 'red "rough" 100 "20")
-       "wrapper around field 'shear-force' worked when field defaulted")
-
-   (is (ball++ #:owner 'tom #:color 'red #:texture 'rough #:shear-force 99)
-       (ball 'tom 'adidas 'red "rough" 100 "99")
-       "wrapper around field 'shear-force' worked when field was set")
-
-
-   ; wrapper that sorts the data, since that's probably a common use case
-   (struct++ game ([(player-names '()) (listof non-empty-string?) (curryr sort string<?)])
+   (is (if-defined ball.color 'defined 'not-defined)
+       'defined
+       "when using #:make-dotted-accessors? #t, the accessors are created")) 
+ (let ()
+   (struct++ animal
+             (name)
+             (#:make-dotted-accessors? #f)
              #:transparent)
-   (is (game++ #:player-names '("fred" "bob" "zack"))
-       (game++ #:player-names '("bob" "fred" "zack"))
-       @~a{(game++ '("fred" "bob" "zack")) sorted its player names upon creation})
+   (is (if-defined animal.name 'defined 'not-defined)
+       'not-defined
+       "when using #:make-dotted-accessors? #f, the accessors are not created"))
+ )
 
-   ))
+
+(test-suite
+ "struct->hash"
+
+ (struct++ person (name
+                   [(age 18) integer? identity #:wrap-accessor (wrap-accessor force)]) #:transparent)
+ (define bob (person++ #:name 'bob #:age 20))
+ (is bob
+     (person 'bob 20)
+     "created bob"
+     )
+ (is (struct->hash person bob)
+     (hash 'name 'bob
+           'age 20)
+     "converted to hash"
+     )
+ )
 
 
-(when #t
-  (test-suite
+(test-suite
+ "struct++ field definitions parse correctly"
+
+ (struct++ point  (
+                   ; mandatory fields, wrap in last place
+                   x
+                   [y real?]
+                   [z real? add1]
+                   [a real? add1 #:wrap-accessor (λ (the-struct val) val)]
+                   [b real? add1 #:wrap-accessor (wrap-accessor force)]
+
+                   ; optional fields, wrap in last place
+                   [(c 7)]
+                   [(d 7) real?]
+                   [(e 7) real? add1]
+                   [(f 7) real? add1 #:wrap-accessor (wrap-accessor force)]
+
+                   ; mandatory fields, wrap in first place
+                   [h #:wrap-accessor (wrap-accessor force) real?]
+                   [i #:wrap-accessor (wrap-accessor force) real? add1]
+
+                   ; optional fields, wrap in first place
+                   [(j 7) #:wrap-accessor (wrap-accessor force) real?]
+                   [(k 7) #:wrap-accessor (wrap-accessor force) real? add1]
+
+                   ; mandatory fields, wrap in the middle
+                   [l real? #:wrap-accessor (wrap-accessor force) add1]
+
+                   ; optional fields, wrap in the middle
+                   [(m 7) real? #:wrap-accessor (wrap-accessor force) add1]
+                   )
+           #:transparent)
+
+ (ok #t "if we get here then it means everything compiled correctly")
+ )
+
+(test-suite
+ "constructors"
+
+ (struct++ ball  (owner
+                  [(maker 'adidas)]
+                  [color (or/c 'red 'white 'black)]
+                  [texture  (or/c 'rough 'smooth) symbol->string]
+                  [(weight-kg 100) exact-positive-integer?]
+                  [(shear-force 20) exact-positive-integer? number->string])
+           #:transparent)
+
+ (dies (thunk (ball++)) "(ball++) dies")
+
+ ; none
+ (is (ball++ #:owner 'tom #:maker 'toms #:color 'red
+             #:texture 'rough #:weight-kg 77 #:shear-force 17)
+     (ball 'tom 'toms 'red "rough" 77 "17")
+     "ball++ with all params specified works")
+
+ ; default
+ (is (ball++ #:owner 'tom #:color 'red #:texture 'rough)
+     (ball 'tom 'adidas 'red "rough" 100 "20")
+     "ball++ can default")
+
+ ; contract
+ (throws (thunk (ball++ #:owner 'tom #:texture 'rough #:color 'notarealcolor))
+         @pregexp{expected: \(or/c \(quote red\) \(quote white\) \(quote black\)\)}
+         "ball++ contracts work")
+
+ ; contract + wrapper
+ (is (ball++ #:owner 'tom #:color 'red #:texture 'rough)
+     (ball 'tom 'adidas 'red "rough" 100 "20")
+     "wrapper around field 'shear-force' worked when field defaulted")
+
+ (is (ball++ #:owner 'tom #:color 'red #:texture 'rough #:shear-force 99)
+     (ball 'tom 'adidas 'red "rough" 100 "99")
+     "wrapper around field 'shear-force' worked when field was set")
+
+
+ ; wrapper that sorts the data, since that's probably a common use case
+ (struct++ game ([(player-names '()) (listof non-empty-string?) (curryr sort string<?)])
+           #:transparent)
+ (is (game++ #:player-names '("fred" "bob" "zack"))
+     (game++ #:player-names '("bob" "fred" "zack"))
+     @~a{(game++ '("fred" "bob" "zack")) sorted its player names upon creation})
+
+
+ )
+
+
+(test-suite
    "functional setters"
 
    (struct++ book ([title string?][pages exact-positive-integer?]) #:transparent)
@@ -158,10 +208,9 @@
    (throws (thunk (update-book-pages b (lambda (x) 'invalid)))
            exn:fail:contract?
            "(update-book-pages b (lambda (x) 'invalid)) threw due to violating field contract")
-   ))
+   )
 
-(when #t
-  (test-suite
+(test-suite
    "rules"
 
    (define eye-color/c  (apply or/c '(brown hazel blue green other)))
@@ -255,10 +304,9 @@
        (pet 'whiskers 'cat #t #f #t)
        "whiskers is dangerous because she is amoral and clawed, despite owners belief's"
        )
-   ))
+   )
 
-(when #t
-  (test-suite
+(test-suite
    "convert-for"
 
    (struct++ person
@@ -279,10 +327,9 @@
      (is (person/convert->hash sample)
          (hash 'name 'bob 'age 19 'height 7 'eyes 'brown)
          "It's okay to have a converter with an empty set of transforms; it will return a hash")
-     )))
+     ))
 
-(when #t
-  (test-suite
+(test-suite
    "full deal"
 
    (define (get-min-age) 18.0)
@@ -292,7 +339,7 @@
               [(eyes 'brown) (or/c 'brown 'black 'green 'blue 'hazel)]
               [(height-m #f) (between/c 0 3)]
               [(weight-kg #f) positive?]
-	      [(bmi #f) positive?]
+              [(bmi #f) positive?]
               [(felonies 0) exact-positive-integer?]
               )
              (#:rule ("bmi can be found" #:at-least  2           (height-m weight-kg bmi))
@@ -375,10 +422,9 @@
               (hair . "brown")
               (shirt . "t-shirt")
               (vision . "20/20"))
-       "(recruit/convert->json bob) works")))
+       "(recruit/convert->json bob) works"))
 
-(when #t
-  (test-suite
+(test-suite
    "reflection"
 
    ; need to create name/c and then reuse it because
@@ -452,140 +498,141 @@
      (is defaults
          (list 'no-default-given 'no-default-given #f #f #f 0 "")
          "defaults are correct"))
-   ))
+   )
 
 (test-suite
- "omit-reflection"
+   "omit-reflection"
 
- (struct++ zazzle (x) (#:omit-reflection) #:transparent)
+   (struct++ zazzle (x) (#:omit-reflection) #:transparent)
 
- (throws (thunk  (struct++-ref (zazzle 9)))
-         #px"expected: struct\\+\\+"
-         "#:omit-reflection works"))
+   (throws (thunk  (struct++-ref (zazzle 9)))
+           #px"expected: struct\\+\\+"
+           "#:omit-reflection works"))
+
 
 
 (test-suite
- "convert-from"
+   "convert-from"
 
- (struct++ public-key ([data bytes?]) #:transparent)
+   (struct++ public-key ([data bytes?]) #:transparent)
 
- (struct++ person
-           ([id exact-positive-integer?]
-            [name non-empty-string?]
-            [(keys '()) list?]
-            )
-           (#:convert-from (vector (vector?
-                                    (vector id
-                                            (app vector->list keys)
-                                            name)
+   (struct++ person
+             ([id exact-positive-integer?]
+              [name non-empty-string?]
+              [(keys '()) list?]
+              )
+             (#:convert-from (vector (vector?
+                                      (vector id
+                                              (app vector->list keys)
+                                              name)
+                                      (id keys name)))
+              #:convert-from (list (list?
+                                    (list id
+                                          (app (compose
+                                                (curry map public-key)
+                                                (curryr apply '()))
+                                               keys)
+                                          (app ~a name)
+                                          )
                                     (id keys name)))
-            #:convert-from (list (list?
-                                  (list id
-                                        (app (compose
-                                              (curry map public-key)
-                                              (curryr apply '()))
-                                             keys)
-                                        (app ~a name)
-                                        )
-                                  (id keys name)))
-            )
-           #:transparent)
+              )
+             #:transparent)
 
- (is (vector->person++ (vector 7 (vector #"foo" #"bar") "bob"))
-     (person 7 "bob" (list  #"foo" #"bar"))
-     @~a{(vector->person++ (vector 7 (vector #"foo" #"bar") "bob")) worked}
-     )
+   (is (vector->person++ (vector 7 (vector #"foo" #"bar") "bob"))
+       (person 7 "bob" (list  #"foo" #"bar"))
+       @~a{(vector->person++ (vector 7 (vector #"foo" #"bar") "bob")) worked}
+       )
 
- (is (list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred))
-     (person 7 "fred" (list (public-key #"foo") (public-key #"bar")))
-     @~a{(list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred)) works}))
+   (is (list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred))
+       (person 7 "fred" (list (public-key #"foo") (public-key #"bar")))
+       @~a{(list->person++ (list 7 (thunk (list #"foo" #"bar")) 'fred)) works}))
 
 
-#;
-(test-suite
- "#:converters"
- (struct++ house
-           ([street-num             natural-number/c]
-            [owner-surname          (or/c #f string?)]
-            [(description (hash))   (or/c #f hash?)]
-            )
-           (#:converters ([#:from ([hash  hash? (curry hash->struct++ house++)]
-                                   [json-string non-empty-string?
-                                                (compose1 hash->house++
-                                                          string->jsexpr)]
-                                   )]
-                          [#:to   ([json-string non-empty-string?
-                                                (compose1 jsexpr->string
-                                                          struct->hash)]
-                                   [hash  hash? struct->hash])]))
-           #:transparent)
 
- (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
+#;(test-suite
+   "#:converters"
+   (struct++ house
+             ([street-num             natural-number/c]
+              [owner-surname          (or/c #f string?)]
+              [(description (hash))   (or/c #f hash?)]
+              )
+             (#:converters ([#:from ([hash  hash? (curry hash->struct++ house++)]
+                                     [json-string non-empty-string?
+                                                  (compose1 hash->house++
+                                                            string->jsexpr)]
+                                     )]
+                            [#:to   ([json-string non-empty-string?
+                                                  (compose1 jsexpr->string
+                                                            struct->hash)]
+                                     [hash  hash? struct->hash])]))
+             #:transparent)
 
-
- (is (if-defined hash->house++ 'defined 'not-defined)
-     'defined
-     "when using #:converters, '#:from hash' correctly produced hash->house++")
-
- (is (if-defined house++->json-string 'defined 'not-defined)
-     'defined
-     "when using #:converters, '#:from hash' correctly produced hash->house++")
-
- (is (if-defined json-string->house++ 'defined 'not-defined)
-     'defined
-     "when using #:converters, '#:from json-string' correctly produced json-string->house++")
-
- (contract-equivalent? (contract-value hash->house++)
-                       (-> hash? house?)
-                       "hash->house++ contract is correct")
-
- (contract-equivalent? (contract-value json-string->house++)
-                       (-> non-empty-string? house?)
-                       "hash->house++ contract is correct")
-
- (contract-equivalent? (contract-value house++->json-string)
-                       (-> house? non-empty-string?)
-                       "hash->house++ contract is correct")
+   (define h1 (house++ #:street-num 1 #:owner-surname "smith"))
 
 
- (define correct-hash
-   (hash 'street-num 7
-         'owner-surname "smith"
-         'description (hash 'color "red")))
+   ;; (is (if-defined hash->house++ 'defined 'not-defined)
+   ;;     'defined
+   ;;     "when using #:converters, '#:from hash' correctly produced hash->house++")
 
- (define correct-house (house 7 "Smith" (hash 'color "red")))
+   ;; (is (if-defined house++->json-string 'defined 'not-defined)
+   ;;     'defined
+   ;;     "when using #:converters, '#:from hash' correctly produced hash->house++")
 
- (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+   ;; (is (if-defined json-string->house++ 'defined 'not-defined)
+   ;;     'defined
+   ;;     "when using #:converters, '#:from json-string' correctly produced json-string->house++")
 
- (is (house++->hash correct-house) correct-hash "house++->hash worked")
+   ;; (contract-equivalent? (contract-value hash->house++)
+   ;;                       (-> hash? house?)
+   ;;                       "hash->house++ contract is correct")
 
- (is (json-string->house++ (jsexpr->string correct-hash))
-     correct-house
-     "json-string->house++ worked")
- )
+   ;; (contract-equivalent? (contract-value json-string->house++)
+   ;;                       (-> non-empty-string? house?)
+   ;;                       "hash->house++ contract is correct")
+
+   ;; (contract-equivalent? (contract-value house++->json-string)
+   ;;                       (-> house? non-empty-string?)
+   ;;                       "hash->house++ contract is correct")
+
+
+   ;; (define correct-hash
+   ;;   (hash 'street-num 7
+   ;;         'owner-surname "smith"
+   ;;         'description (hash 'color "red")))
+
+   ;; (define correct-house (house 7 "Smith" (hash 'color "red")))
+
+   ;; (is (hash->house++ correct-hash) correct-house "hash->house++ worked")
+
+   ;; (is (house++->hash correct-house) correct-hash "house++->hash worked")
+
+   ;; (is (json-string->house++ (jsexpr->string correct-hash))
+   ;;     correct-house
+   ;;     "json-string->house++ worked")
+   )
+
 
 
 (test-suite
- "#:rules"
+   "#:rules"
 
- (struct++ animal
-           ([name (or/c symbol? non-empty-string?) ~a]
-            [age positive?])
-           (
-            #:rules (["announce name"   #:check (name)        [#t]]
-                     ["have a birthday" #:transform age (age) [(add1 age)]])
-            )
-           #:transparent)
+   (struct++ animal
+             ([name (or/c symbol? non-empty-string?) ~a]
+              [age positive?])
+             (
+              #:rules (["announce name"   #:check (name)        [#t]]
+                       ["have a birthday" #:transform age (age) [(add1 age)]])
+              )
+             #:transparent)
 
- (is (animal.age (animal++ #:name "fido" #:age 3))
-     4
-     "fido is now 4")
- (is (animal.age (animal++ #:name "rover" #:age 7))
-     8
-     "rover is 8"))
+   (is (animal.age (animal++ #:name "fido" #:age 3))
+       4
+       "fido is now 4")
+   (is (animal.age (animal++ #:name "rover" #:age 7))
+       8
+       "rover is 8"))
 
-(when #t
-  (test-suite
+(test-suite
    "tests from the field: file-event"
 
    ; This is (simplified) production code from some other project where the code failed
@@ -634,10 +681,8 @@
            "correctly reports a failed check when one of the arguments is a list")
 
    )
-  )
 
-(when #t
-  (test-suite
+(test-suite
    "at-least handles list arguments"
 
 
@@ -652,4 +697,3 @@
            )
 
    )
-  )

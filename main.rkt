@@ -17,6 +17,7 @@
 (provide struct++
          struct->hash
          hash->struct++
+         wrap-accessor
          (all-from-out "reflection.rkt"))
 
 ;;  hash->struct/kw comes from handy/struct; we want to re-export it but with a less ugly
@@ -43,11 +44,12 @@
 
   (define-template-metafunction (make-dotted-accessor stx)
     (syntax-parse stx
-      [(make-dotted-accessor #f _ _ _ _ _ _)
+      [(make-dotted-accessor #f _ _ _ _ _ _ _)
        #''()]
       [(make-dotted-accessor #t
                              struct-id ctor-id predicate
-                             field-name field-contract wrapper)
+                             field-name field-contract wrapper
+                             accessor-wrapper)
        (with-syntax ([accessor-name (format-id #'struct-id
                                                "~a-~a"
                                                #'struct-id
@@ -56,7 +58,9 @@
                                                       "~a.~a"
                                                       #'struct-id
                                                       #'field-name)])
-         (template (define dotted-accessor-name accessor-name)))]))
+         (template (define/contract (dotted-accessor-name the-struct)
+                     (-> predicate field-contract)
+                     (accessor-wrapper the-struct (accessor-name the-struct)))))]))
 
   ;;--------------------------------------------------
 
@@ -196,18 +200,45 @@
 
   (define-syntax-class field
     (pattern (~or id:id
-                  [id:id (~optional (~seq cont:expr (~optional wrap:expr)))])
+                  [id:id  (~optional (~seq (~seq #:wrap-accessor access-wrap:expr)
+                                           (~optional contract:expr)
+                                           (~optional wrap:expr)
+                                           ))]
+                  [id:id  (~optional (~seq contract:expr
+                                           (~optional (~seq #:wrap-accessor access-wrap:expr))
+                                           (~optional wrap:expr)))]
+                  [id:id  (~optional (~seq contract:expr
+                                           (~optional wrap:expr)
+                                           (~optional (~seq #:wrap-accessor access-wrap:expr))))])
              #:with required? #'#t
-             #:with field-contract (template (?? cont any/c))
+             #:with field-contract (template (?? contract any/c))
              #:with wrapper (template (?? wrap identity))
+             #:with accessor-wrapper (template (?? access-wrap
+                                                   (λ (the-struct field-val) field-val)))
              #:with ctor-arg #`(#,(syntax->keyword #'id) id)
              #:with def #''no-default-given)
 
-    (pattern [(id:id default-value:expr)
-              (~optional (~seq cont:expr (~optional wrap:expr)))]
+    (pattern (~or [(id:id default-value)
+                   (~optional (~seq contract:expr
+                                    (~optional wrap:expr)
+                                    (~optional (~seq #:wrap-accessor access-wrap:expr))))]
+                  [(id:id default-value)
+                   (~optional (~seq (~seq #:wrap-accessor access-wrap:expr)
+                                    (~seq contract:expr
+                                          (~optional wrap:expr)))
+                              )]
+                  [(id:id default-value)
+                   (~optional (~seq contract:expr
+                                    (~optional (~seq #:wrap-accessor access-wrap:expr))
+                                    (~optional wrap:expr))
+                              )]
+
+                  )
              #:with required? #'#f
-             #:with field-contract (template (?? cont any/c))
+             #:with field-contract (template (?? contract any/c))
              #:with wrapper (template (?? wrap identity))
+             #:with accessor-wrapper (template (?? access-wrap
+                                                   (λ (the-struct field-val) field-val)))
              #:with ctor-arg #`(#,(syntax->keyword #'id) [id default-value])
              #:with def (template  default-value)
              )
@@ -288,6 +319,14 @@
     (pattern (~seq #:make-dotted-accessors? yes?:boolean)))
 
   )
+
+;;--------------------------------------------------
+
+(define-syntax (wrap-accessor stx)
+  (syntax-parse stx
+    [(_ func) #'(λ args (apply func (cdr args)))]))
+
+;;--------------------------------------------------
 
 (define-syntax struct->hash
   (syntax-parser
@@ -385,6 +424,7 @@
                                   field.id
                                   field.field-contract
                                   field.wrapper
+                                  field.accessor-wrapper
                                   )
             ...)
           (begin
