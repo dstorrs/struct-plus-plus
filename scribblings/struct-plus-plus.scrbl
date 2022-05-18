@@ -161,13 +161,22 @@ The intent is to move structs from being dumb data repositories into being data 
  (struct++ type:id (field ...+) spp-options struct-option ...)
 
  field :   field-id
-         | (field-id                   field-contract          )
-         | (field-id                   field-contract   wrapper)
-         | ([field-id  default-value]                          )
-         | ([field-id  default-value]  field-contract          )
-         | ([field-id  default-value]  field-contract   wrapper)
+         | [field-id maybe-accessor-wrapper maybe-field-contract maybe-wrapper]
+         | [field-id maybe-field-contract  maybe-accessor-wrapper maybe-wrapper]
+         | [field-id maybe-field-contract  maybe-wrapper maybe-accessor-wrapper]
 
- field-contract : contract? = any/c
+         | [(field-id default-value) maybe-accessor-wrapper maybe-field-contract maybe-wrapper]
+         | [(field-id default-value) maybe-field-contract  maybe-accessor-wrapper maybe-wrapper]
+         | [(field-id default-value) maybe-field-contract  maybe-wrapper maybe-accessor-wrapper]
+
+ maybe-field-contract : 
+                        | contract? = any/c
+
+ maybe-wrapper : 
+                  | procedure? = identity
+
+ maybe-accessor-wrapper : 
+                           | #:wrap-accessor (and/c procedure? (procedure-arity-includes? 2))
 
  spp-options :
                | (spp-option ...+)
@@ -273,6 +282,8 @@ The @racket[recruit] constructor is the standard one that Racket generates from 
 
 @section{Dotted Accessors}
 
+@subsection{Basics}
+
 Racket's default accessor construction can be confusing. For example:
 
   @racket[(remote-server-send-ch foo)] 
@@ -284,6 +295,40 @@ Compare the less ambiguous version:
   @racket[(remote-server.send-ch foo)]
 
 When @racket[#:make-dotted-accessors?] is missing or has the value #t, @racket[struct++] will generate a dotted accessor for each field. When @racket[#:make-dotted-accessors?] is defined and has the value #f the dotted accessors will not be generated.
+
+@subsection{Access Wrappers}
+
+Accessor wrappers allow you to make the struct do something extra when retrieving a field's value, such as retrieve the data from a database, log the act of accessing, etc.
+
+@bold{Access wrappers only work through the dotted accessors, not through the default accessors created by} @racket[struct]@bold{.  This is a feature, not a bug.}
+
+Accessor wrappers take two arguments: the struct itself and the current value of the field.  
+
+@examples[
+ #:eval eval
+ #:label #f
+ (struct++ dog ([name (or/c string? promise?) #:wrap-accessor (λ (the-struct current-val) (force current-val))]))
+ (define fido (dog++ #:name (lazy "fido")))
+ (displayln
+ (~a " default accessor returns: " (dog-name fido)
+     "\n before dotted accessor, promise was forced?: " (promise-forced? (dog-name fido))
+     "\n dotted accessor returns: " (dog.name fido)
+     "\n after dotted accessor, promise was forced?: " (promise-forced? (dog-name fido))))
+]
+
+That lambda is ugly and a lot of the time we don't want to use the struct argument, only the current value.  How about something prettier?  The @racket[wrap-accessor] macro consumes a function and returns another function that takes any number of arguments and passes all but the first argument to the wrapped function. (i.e., it will create a function that accepts both the struct and the value as arguments and then ignore the struct and passes the value to the wrapped function)
+
+@examples[
+ #:eval eval
+ #:label #f
+ (struct++ horse ([name (or/c string? promise?) #:wrap-accessor (wrap-accessor force)]))
+ (define secretariat (horse++ #:name (lazy "secretariat")))
+ (displayln
+ (~a " default accessor returns: " (horse-name secretariat)
+     "\n before dotted accessor, promise was forced?: " (promise-forced? (horse-name secretariat))
+     "\n dotted accessor returns: " (horse.name secretariat)
+     "\n after dotted accessor, promise was forced?: " (promise-forced? (horse-name secretariat))))
+]
 
 
 @section{Setters and Updaters}
@@ -591,6 +636,7 @@ Some of these were already mentioned above:
 
 @itemlist[
  @item{@racket[recruit++] checks contracts and rules etc.  @racket[recruit] does not}
+ @item{@racket[person.name] respects the accessor wrapper, @racket[person-name] does not}
  @item{@racket[#:transform] rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
  @item{@racket[#:check] rules take exactly one expression in their code segment.  If the returned value is true then the rule passed, and if it's @racket[#f] then the rule calls @racket[raise-arguments-error]}
  @item{Rules are processed in order. Changes made by a @racket[#:transform] rule will be seen by later rules}
