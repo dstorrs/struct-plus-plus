@@ -20,7 +20,9 @@
  @item{(optional) functional setters and updaters for each field}
  @item{(optional) distinct defaults for individual fields}
  @item{(optional) contracts for each field}
+ @item{(optional) dotted accessors to clarify struct/field relationship}
  @item{(optional) wrapper functions for each field}
+ @item{(optional) wrappers around field accessors}
  @item{(optional) dependency checking between fields}
  @item{(optional) declarative syntax for business logic rules}
  @item{(optional) declarative syntax for converting the structures to arbitrary other values}
