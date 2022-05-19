@@ -332,6 +332,10 @@ That lambda is ugly and a lot of the time we don't want to use the struct argume
      "\n after dotted accessor, promise was forced?: " (promise-forced? (horse-name secretariat))))
 ]
 
+Note:  One drawback to accessor wrappers is that they do not actually alter the value stored in the struct, they only return something different.  That means that using something like @racket[match] will pull out the value actually stored there, not the value that would have come from the accessor wrapper.
+
+As an example of why you might want to use accessor wrappers, they would be an excellent way to implement an ORM, where a struct represents a database and performs queries when you access various fields.  Using setters and updaters could then be used to write to the database.
+
 
 @section{Setters and Updaters}
 
@@ -636,21 +640,35 @@ Declarations for the various types used in reflection:
 
 Some of these were already mentioned above:
 
+@subsection{Warnings}
+
+@itemlist[
+ @item{One drawback to accessor wrappers is that they do not actually alter the value stored in the struct, they only return something different.  That means that using something like @racket[match] will pull out the value actually stored there, not the value that would have come from the accessor wrapper.}
+ @item{TO FIX:  Changes caused by transform rules in a @racket[#:rules] clause are not visible in a later @racket[#:rule] clause.}
+ @item{If you include the @racket[#:prefab] option then you must also include @racket[#:omit-reflection]} 
+ @item{As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
+
+]
+
+@subsection{Notes}
+
 @itemlist[
  @item{@racket[recruit++] checks contracts and rules etc.  @racket[recruit] does not}
  @item{@racket[person.name] respects the accessor wrapper, @racket[person-name] does not}
  @item{@racket[#:transform] rules take 1+ expressions in their code segment.  The return value becomes the new value of the target}
  @item{@racket[#:check] rules take exactly one expression in their code segment.  If the returned value is true then the rule passed, and if it's @racket[#f] then the rule calls @racket[raise-arguments-error]}
  @item{Rules are processed in order. Changes made by a @racket[#:transform] rule will be seen by later rules}
-@item{TO FIX:  Changes caused by transform rules in a @racket[#:rules] clause are not visible in a later @racket[#:rule] clause.}
  @item{None of the generated functions (@racket[struct-name++], @racket[set-struct-name-field-name], etc) are exported.  You'll need to list them in your @racket[provide] line manually}
- @item{Note:  As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
  @item{See the @racket[hash-remap] function in the @racketmodname[handy] module for details on what the @racket[#:convert-for] converter options mean}
- @item{If you include the @racket[#:prefab] option then you must also include @racket[#:omit-reflection]} 
+ ]
+
+@subsection{TODOs}
+
+@itemlist[
  @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
  @item{TODO:  Add more complex variations of @racket[#:transform] that can handle multiple values at once, such as:  @racket[#:transform (height weight bmi) (height weight bmi) [(values (calc-bmi #f weight bmi) (calc-bmi height #f bmi) (calc-bmi height weight #f))]]}
  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
- ]
+]
 
 @subsection{Field options and why they aren't available}
 
