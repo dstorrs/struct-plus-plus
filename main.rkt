@@ -18,7 +18,10 @@
          struct->hash
          hash->struct++
          wrap-accessor
-         (all-from-out "reflection.rkt"))
+         (except-out (all-from-out "reflection.rkt")
+                     struct++-info++
+                     struct++-field++
+                     struct++-rule++))
 
 (define/contract (hash->struct++ struct-ctor h)
   (-> procedure? (hash/c symbol? any/c) any/c)

@@ -157,7 +157,7 @@ The intent is to move structs from being dumb data repositories into being data 
  ]
 
 
-@section{Syntax}
+@section[#:tag "Syntax"]{Syntax}
 
 @verbatim{
  (struct++ type:id (field ...+) spp-options struct-option ...)
@@ -175,7 +175,7 @@ The intent is to move structs from being dumb data repositories into being data 
                         | contract? = any/c
 
  maybe-wrapper : 
-                  | procedure? = identity
+                  | (and/c procedure? (procedure-arity-includes? 1)) = identity
 
  maybe-accessor-wrapper : 
                            | #:wrap-accessor (and/c procedure? (procedure-arity-includes? 2))
@@ -191,7 +191,7 @@ The intent is to move structs from being dumb data repositories into being data 
               | convert-for
               | convert-from
 
- rule :  #:rule rule-clause
+ rule  :  #:rule rule-clause
 
  rules :  #:rules (rule-clause ...+)
 
@@ -241,7 +241,7 @@ The intent is to move structs from being dumb data repositories into being data 
 
 Note: Supertypes are not supported as of this writing, nor are field-specific keywords (#:mutable and #:auto).  See below for why.
 
-Note: Rules can be specified using either multiple @racket[#:rule] clauses or a single @racket[#:rules] clause that will be unpacked to be the equivalent set of @racket[#:rule] clauses.  In both cases the syntax of the clauses is exactly the same, so it's mostly an aesthetic preference.
+Note: Rules can be specified using either multiple @racket[#:rule] clauses or a single @racket[#:rules] clause that will be unpacked to be the equivalent set of @racket[#:rule] clauses.  In both cases the syntax of the clauses is exactly the same, so it's mostly an aesthetic preference.  Regardless, it's better to choose one method and use it consistently.  See @secref{"Warnings"} for details.
 
 @section{Constructors}
 
@@ -281,6 +281,11 @@ The @racket[recruit] constructor is the standard one that Racket generates from 
  (code:comment "\n; default Racket constructor does not check field constraints")
  (flower 184 #f)  
 ]
+
+@section{Wrappers}
+
+All fields have wrappers; either you set one or the wrapper is @racket[identity].  Values go through the wrapper whenever the struct is created or when a setter/updater is called.  The return value of the wrapper is what is actually stored in the struct.
+
 
 @section{Dotted Accessors}
 
@@ -520,7 +525,17 @@ convert-from functions are named @racket[<source>-><struct-name>++], where `sour
   (vector->person++ (vector 9 (vector #"foo" #"bar") "fred"))
  ]
 
-Behind the scenes, the #:convert-from specification above is equivalent to the following:
+There are four parts to the convert-from clause:
+
+@itemlist[#:style 'ordered
+@item{The name of what is being converted.  In the example this is @racketid[vector]. It is used to generate the name of the converter function, e.g. @racketid[vector->person++]}
+@item{A predicate that will recognize that thing (e.g. @racket[vector?]), which is used to build the contract for the converter function}
+@item{A @racket[match] clause that will parse the thing and assign its elements to identifiers that correspond to the field names of the struct}
+@item{A series of the identifiers from the @racket[match] clause that should be used to construct the struct.  Again, the identifiers must have the same names as the fields; this is so that the macro can use the identifiers to generate the correct keywords for the constructor}]
+
+In this example we created a function named @racketid[vector->person++] which takes a vector of three elements and returns a @racket[person] struct.  The first element of the vector must be an @racket[exact-positive-integer?], the second must be a vector containing zero or more byte strings, and the third must be a @racket[non-empty-string?].  The vector of bytes is converted to a list, the elements of which are converted to @racket[key] structs.
+
+Behind the scenes, the @racket[#:convert-from] specification above is equivalent to the following:
 
 @examples[
  #:eval eval
@@ -531,8 +546,8 @@ Behind the scenes, the #:convert-from specification above is equivalent to the f
  (struct++ key ([data bytes?]) #:transparent)
  
  (struct++ person
-           ([id exact-positive-integer?]
-            [name non-empty-string?]
+           ([id         exact-positive-integer?]
+            [name       non-empty-string?]
             [(keys '()) list?])
 	    #:transparent)
 
@@ -547,9 +562,6 @@ Behind the scenes, the #:convert-from specification above is equivalent to the f
  (vector->person++ (vector 9 (vector #"foo" #"bar") "fred"))
 ]
 
-@section{Wrappers}
-
-All fields have wrappers; either you set one or the wrapper is @racket[identity].  Values go through the wrapper whenever the struct is created or when a setter/updater is called.  The return value of the wrapper is what is actually stored in the struct.
 
 @section{Reflection}
 
@@ -589,8 +601,8 @@ Declarations for the various types used in reflection:
 
  (struct struct++-info
    (base-constructor constructor predicate fields rules converters))
- (code:comment "  base-constructor will be the ctor defined by @racket[struct], e.g. 'person'")
- (code:comment "  constructor will be the ctor defined by @racket[struct++], e.g. 'person++'")
+ (code:comment "  base-constructor will be the ctor defined by struct, e.g. 'person'")
+ (code:comment "  constructor will be the ctor defined by struct++, e.g. 'person++'")
  (code:comment "  predicate will be, e.g., 'person?'")
  (code:comment "  converters will be a list of the procedures defined by the #:convert-for items")
  ]
@@ -635,19 +647,93 @@ Declarations for the various types used in reflection:
  ]
 
 
+@section{API}
+
+  @defform[(struct++)]{See @secref{Syntax}.}
+
+  @subsection{Utilities}
+
+@defproc[(struct->hash [struct-desc struct-id]  [s struct?]) (hash/c symbol? any/c)]{
+  Accepts a structure-type transformer binding (cf @racket[struct-id] from the @racketid[syntax/parse/class/struct-id] module) and an instance of that struct type.  Returns an immutable hash where the keys are symbols of the same name as the field names and the values are the contents of those fields.
+
+Helpful tip:  Under normal circumstances, a `structure-type transformer binding' has the same name as the struct type.
+  
+@examples[
+ #:eval eval
+ #:label #f
+
+ (struct person (name age hair) #:transparent)
+ (define bob (person 'bob 18 "brown"))
+ bob
+ (struct->hash person bob)
+]
+}
+
+@defproc[(hash->struct++ [struct-ctor procedure?] [h (hash/c symbol? any/c)]) any/c]{
+Takes a struct constructor function and a hash, returns a struct of the appropriate type.  The ctor must be one that accepts keywords (e.g. created by struct++).  The keys of the hash must be symbols that case-sensitiviely match the keywords used by the struct constructor.
+@examples[
+ #:eval eval
+ #:label #f
+
+ (struct++ canine (name age) #:transparent)
+ (define fido (canine++ #:name "fido" #:age 17))
+ fido
+ (hash->struct++ canine++ (hash 'name "fido" 'age 17))
+]
+  }
+
+  @defform[(wrap-accessor func) #:contracts ([func (and/c procedure? (procedure-arity-includes/c 1))])]{
+Consumes a function that can accept one or more non-keyword arguments and has no mandatory keyword arguments.   Produces a function that accepts an arbitrary number of arguments, drops the first one, and passes the rest to the wrapped function.
+
+@examples[
+ #:eval eval
+ #:label #f
+
+(define acc-wrap (wrap-accessor force))
+acc-wrap
+(code:comment "`acc-wrap' is equivalent to (lambda args (apply force (cdr args)))")
+]
+  }
+
+@subsection[#:tag "Reflection Implementation"]{Reflection Implementation}
+
+  See @secref{Reflection} for full details on how to use reflection.
+
+@defthing[prop:struct++ struct-type-property?]{The struct property in which is stored a @racket[promise] which, when @racket[force]d, yields a @racket[struct++-info] in which reflection data is stored.  Retrieve the property using @racket[struct++-ref].}
+
+
+  @defstruct*[struct++-field ([name symbol?]
+  			     [accessor (-> any/c any/c)]
+			     [contract contract?]
+			     [wrapper procedure?]
+			     [default any/c]
+			     )]{A struct type for describing the fields of a struct.}
+
+@defstruct*[struct++-info ([base-constructor procedure?]
+			  [constructor procedure?]
+			  [predicate predicate/c]
+			  [fields              (listof struct++-field?)]
+			  [rules               (listof struct++-rule?)]
+			  [converters          (listof procedure?)])]{A struct type that collects all reflection data on a struct created via @racket[struct++]}
+
+@defproc[(struct++-ref [instance struct?]) struct-type-property?]{Retrieve the @racket[prop:struct++] instance for a particular struct.  For examples, see @secref{Reflection}. }
+
+@defstruct*[struct++-rule ([name string?][type (or/c 'at-least 'transform 'check)])]{A struct type to describe one rule from a @racket[struct++] struct type.}
+
+
 
 @section{Warnings, Notes, and TODOs}
 
 Some of these were already mentioned above:
 
-@subsection{Warnings}
+@subsection[#:tag "Warnings"]{Warnings}
 
 @itemlist[
  @item{One drawback to accessor wrappers is that they do not actually alter the value stored in the struct, they only return something different.  That means that using something like @racket[match] will pull out the value actually stored there, not the value that would have come from the accessor wrapper.}
  @item{TO FIX:  Changes caused by transform rules in a @racket[#:rules] clause are not visible in a later @racket[#:rule] clause.}
  @item{If you include the @racket[#:prefab] option then you must also include @racket[#:omit-reflection]} 
  @item{As with any function in Racket, default values are not sent through the contract.  Therefore, if you declare a field such as (e.g.) @racket[[(userid #f) integer?]] but you don't pass a value to it during construction then you will have an invalid value (@racket[#f] in a slot that requires an integer).  Default values ARE sent through wrapper functions, so be sure to take that into account -- if you have a default value of @racket[#f] and a wrapper function of @racket[add1] then you are setting yourself up for failure.}
-
+@item{In a @racketid[convert-from] clause, the match clause must bind components to identifiers that will be used to construct the struct.  Those identifiers must have the same names as the fields so that the code can correctly generate the keywords for those fields.} 
 ]
 
 @subsection{Notes}
@@ -666,7 +752,6 @@ Some of these were already mentioned above:
 
 @itemlist[
  @item{TODO:  Add more complex variations of @racket[#:at-least], such as:  @racket[#:at-least 1 (person-id (person-name department-id))]}
- @item{TODO:  Add more complex variations of @racket[#:transform] that can handle multiple values at once, such as:  @racket[#:transform (height weight bmi) (height weight bmi) [(values (calc-bmi #f weight bmi) (calc-bmi height #f bmi) (calc-bmi height weight #f))]]}
  @item{TODO: add a keyword that will control generation of mutation setters that respect contracts and rules. (Obviously, only if you've made your struct @racket[#:mutable])}
 ]
 
