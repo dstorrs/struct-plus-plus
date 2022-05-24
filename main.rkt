@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require racket/require
-         (multi-in handy (hash struct))
+         handy/hash
          (multi-in racket (bool contract/base contract/region function match promise))
          (only-in racket/list count flatten)
          "reflection.rkt"
@@ -20,12 +20,13 @@
          wrap-accessor
          (all-from-out "reflection.rkt"))
 
-;;  hash->struct/kw comes from handy/struct; we want to re-export it but with a less ugly
-;;  name.  (Also so that if I eventually re-implement it here in a more efficient or etc
-;;  way then the change won't be visible on the outside.)  If we tried (provide (rename-out
-;;  [hash->struct/kw hash->struct++])) then the name would not be changed in the printer.
-;;
-(define hash->struct++ (procedure-rename hash->struct/kw 'hash->struct++))
+(define/contract (hash->struct++ struct-ctor h)
+  (-> procedure? (hash/c symbol? any/c) any/c)
+  (define sorted-keys (sort (hash-keys h) symbol<?))
+  (keyword-apply struct-ctor
+                 (map (compose string->keyword symbol->string) sorted-keys)
+                 (map (curry hash-ref h) sorted-keys)
+                 '()))
 
 ;;======================================================================
 
@@ -78,10 +79,10 @@
          (template
           (define/contract (setter-name instance val)
             (-> predicate field-contract predicate)
-            (hash->struct/kw ctor-id
-                             (safe-hash-set (struct->hash struct-id instance)
-                                            'field-name
-                                            (wrapper val))))))]))
+            (hash->struct++ ctor-id
+                            (safe-hash-set (struct->hash struct-id instance)
+                                           'field-name
+                                           (wrapper val))))))]))
 
   ;;--------------------------------------------------
 
@@ -107,10 +108,10 @@
          (template
           (define/contract (updater-name instance updater)
             (-> predicate (-> field-contract field-contract) predicate)
-            (hash->struct/kw ctor-id
-                             (safe-hash-set (struct->hash struct-id instance)
-                                            'field-name
-                                            (wrapper (updater (getter instance))))))))]))
+            (hash->struct++ ctor-id
+                            (safe-hash-set (struct->hash struct-id instance)
+                                           'field-name
+                                           (wrapper (updater (getter instance))))))))]))
 
   ;;--------------------------------------------------
 
