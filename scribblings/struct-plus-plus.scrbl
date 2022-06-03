@@ -241,7 +241,7 @@ The intent is to move structs from being dumb data repositories into being data 
 
 Note: Supertypes are not supported as of this writing, nor are field-specific keywords (#:mutable and #:auto).  See below for why.
 
-Note: Rules can be specified using either multiple @racket[#:rule] clauses or a single @racket[#:rules] clause that will be unpacked to be the equivalent set of @racket[#:rule] clauses.  In both cases the syntax of the clauses is exactly the same, so it's mostly an aesthetic preference.  Regardless, it's better to choose one method and use it consistently.  See @secref{"Warnings"} for details.
+Note: Rules can be specified using either multiple @racket[#:rule] clauses or a single @racket[#:rules] clause that will be unpacked to be the equivalent set of @racket[#:rule] clauses.  In both cases the syntax of the clauses is exactly the same, so it's mostly an aesthetic preference.  Regardless, it's better to choose one method and use it consistently.  See @secref{Warnings} for details.
 
 @section{Constructors}
 
