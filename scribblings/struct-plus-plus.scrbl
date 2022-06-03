@@ -396,8 +396,8 @@ Bob @italic{really} wants to join the military, and he's willing to lie about hi
             [(weight-kg #f) positive?]
             [(bmi #f) positive?]
             [(felonies 0) natural-number/c])
-      (#:rule   ("bmi can be found"     #:at-least    2       (height-m weight-kg bmi))
-       #:rule   ("lie about age if necessary" #:transform age (age) [(if (>= age (get-min-age)) age (get-min-age))])
+      (#:rule ("bmi can be found"     #:at-least    2       (height-m weight-kg bmi))
+       #:rule ("lie about age if necessary" #:transform age (age) [(if (>= age (get-min-age)) age (get-min-age))])
        #:rule ("ensure height/weight/BMI"     #:transform
                                                  (height-m weight-kg bmi)
                                                  (bmi height-m weight-kg name)
