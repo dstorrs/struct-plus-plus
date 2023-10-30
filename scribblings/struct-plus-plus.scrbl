@@ -461,20 +461,26 @@ Nope!  You cannot invalidate the structure by way of the functional setters/upda
 
 @subsection{convert-for}
 
-When marshalling a struct for writing to a database, a file, etc, it is useful to turn it into a different data structure, usually but not always a hash.  Converters will change the struct into a hash, then pass the hash to the @racket[hash-remap] function in @racketmodname[handy], allowing you to return anything you want.  See the handy/hash docs for details, but a quick summary:
+@subsubsection{Summary}
+      
+When marshalling a struct for writing to a database, a file, etc, it is useful to turn it into a different data structure, usually but not always a hash.  Converters will change the struct into a hash, then pass the hash to the @racket[hash-remap] function in @racketmodname[handy], allowing you to return anything you want.  @racket[hash-remap] takes a series of keyword arguments specifying how the hash should be mangled.  Specifically:
 
 @itemlist[
  @item{@racket[#:remove] <list> : delete the keys in the list from the hash}
  @item{@racket[#:overwrite] <hash> : change the values of existing keys or add missing ones}
  @item{@racket[#:add] <hash> : add one or more keys to the hash, die if they were already there}
  @item{@racket[#:rename] <hash> : change the names of one or more keys}
- @item{@racket[#:default] <hash> : if a key is there, leave it alone.  If not, add it}
- @item{@racket[#:value-is-default?] : change the behavior of #:default so that it sets the value of missing keys or keys that match a specified predicate}
- @item{@racket[#:action-order] : specify in what order to apply the above options}
- @item{@racket[#:post] : run the resulting hash through a function that returns anything you want}
+ @item{@racket[#:value-is-default?] <function> : a predicate that specifies what values should be defaulted} 
+ @item{@racket[#:default] <hash> : if a key is not there, add it.  If it is there it will be set if and only if it matches the value-is-default? predicate.}
+ @item{@racket[#:action-order] <list> : specify in what order to apply the above options. Default is '(include remove overwrite add rename default)}
+ @item{@racket[#:post] <function> : run the resulting hash through a function that returns anything you want}
  ]
 
 Note that @racket[#:overwrite] provides special behavior for values that are procedures with arity 0, 1, or 3.  The values used are the result of calling the procedure with no args (arity 0); the current value (arity 1); or hash, key, current value (arity 3).
+
+Note that @racket[#:default] provides special behavior for values that are procedures.  If the procedure has arity of exactly 2 then it will be called as (func key hash).  Procedures with other arity will be called as (func key).  The value used for the field is comes back from the procedure call.
+
+@subsubsection{convert-for Examples}
 
 convert-for functions are named @racket[<struct-name>-><purpose>], where `purpose' is the name given to the conversion specification.  (DEPRECATED: There are also aliases named @racket[<struct-name>/convert-><purpose>]) For example:
 
@@ -494,7 +500,52 @@ convert-for functions are named @racket[<struct-name>-><purpose>], where `purpos
  (code:comment "\n; deprecated aliases for the above")
  (person/convert->db   bob)
  (person/convert->json bob)
- ]
+
+ (code:comment "\n; examples that demonstrate hash-mangling options")
+ (struct++ fruit
+     (name color price)
+     (
+     #:convert-for (include (#:include '(name))) (code:comment "include only the name field")
+     #:convert-for (remove (#:remove '(name price))) (code:comment "remove everything but the color field")
+     #:convert-for (add-good (#:add (hash 'type "added the 'type' key")))
+     #:convert-for (add-bad (#:add (hash 'name "Boom! can't 'add' existing keys and 'name' key is already there")))
+     #:convert-for (rename (#:rename (hash 'price 'price-in-pennies)))
+     #:convert-for (overwrite-name-via-value (#:overwrite (hash 'name "yummy fruit!")))
+     #:convert-for (overwrite-name-via-func-arity0 (#:overwrite (hash 'name (thunk "value from thunk"))))
+     #:convert-for (overwrite-name-via-func-arity1 (#:overwrite (hash 'name (lambda (v) (~a "the original value was: '" v "'")))))
+     #:convert-for (overwrite-name-via-func-arity3 (#:overwrite (hash 'name (lambda (h k v) (list h k v)))))
+     #:convert-for (convert-using-all-options
+        (#:action-order '(add default rename remove overwrite) (code:comment "specify the order in which to apply the options") 
+         #:add (hash 'subtype "honeycrisp"  (code:comment "add new keys")
+  	             'source "Vermont"
+  	             'organic? 'unspecified
+  	             'leaves 2) 
+         #:value-is-default? 'unspecified (code:comment "keys with a value of 'unspecified will be defaulted, along with keys that are not present")
+         #:default (hash 'source-farm "McDonald's"  (code:comment "key isn't there so it will be added")
+		         'organic? #t (code:comment "will replace existing value because existing value is considered default")
+		         'leaves (lambda (k h) (add1 (hash-ref h k))))
+	 #:rename (hash 'price "price-in-pennies" (code:comment "rename the pre-existing 'price key")
+		        'subtype 'breed) (code:comment "rename the 'subtype' key that was created in the 'add' step above")
+	 #:remove '(price-in-pennies no-such-key) (code:comment "ensure key is not present. doesn't care if it wasn't")
+	 #:overwrite (hash 'name "a new name"
+	                   'color (thunk "a value made inside a thunk") (code:comment "function of 0 args is called")
+			   'breed string-titlecase (code:comment "function of 1 argument receives the value")
+			   'multi-leaved? (lambda (h k v) (code:comment "add new key. function of 3 arguments gets hash, key, value")
+			                    (>= (hash-ref h 'leaves) 2)))
+			                    ))))
+
+     (define apple (fruit "apple" "red" 199))
+     (fruit->include apple)
+     (fruit->remove apple)
+     (fruit->add-good apple)
+     (eval:error (fruit->add-bad apple))     
+     (fruit->rename apple)
+     (fruit->overwrite-name-via-value apple)
+     (fruit->overwrite-name-via-func-arity0 apple)
+     (fruit->overwrite-name-via-func-arity1 apple)
+     (pretty-print (fruit->overwrite-name-via-func-arity3 apple))
+     (pretty-print (fruit->convert-using-all-options apple))
+     ]
 
 @subsection{convert-from}
 
