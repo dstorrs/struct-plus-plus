@@ -531,8 +531,8 @@ convert-for functions are named @racket[<struct-name>-><purpose>], where `purpos
 	                   'color (thunk "a value made inside a thunk") (code:comment "function of 0 args is called")
 			   'breed string-titlecase (code:comment "function of 1 argument receives the value")
 			   'multi-leaved? (lambda (h k v) (code:comment "add new key. function of 3 arguments gets hash, key, value")
-			                    (>= (hash-ref h 'leaves) 2)))
-			                    ))))
+			   (>= (hash-ref h 'leaves) 2)))
+	 #:post hash->list (code:comment "after all earlier changes are made, convert the hash to a list")))))
 
      (define apple (fruit "apple" "red" 199))
      (fruit->include apple)
